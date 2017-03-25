@@ -30,7 +30,10 @@ Dog31 | K | 1
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
 
 ## Do some local setup
-### Maybe pull this code here
+### Pull the code in the repository
+```bash
+git clone https://github.com/grbot/amw.git
+```
 
 ### Setup some PATHS
 ```bash
