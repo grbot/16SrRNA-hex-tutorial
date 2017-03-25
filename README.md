@@ -6,23 +6,23 @@ The dataset we will be working are the practice dataset from the [H3ABioNet 16S 
 
 The table below contains the metadata associated with the dog stool samples. There are three dogs which are treated with increased percentage of a compound in their diet: 5 different treatments (0-4, representing an increased percentage of a compound in their diet).
 
-Sample | Dog | Treatment
------- | --- | ---------
-Dog1 | B | 2
-Dog2 | G | 3
-Dog3 | K | 3
-Dog8 | B | 4
-Dog9 | G | 0
-Dog10 | K | 4
-Dog15 | B | 1
-Dog16 | G | 4
-Dog17 | K | 0
-Dog22 | B | 3
-Dog23 | G | 1
-Dog24 | K | 2
-Dog29 | B | 0
-Dog30 | G | 2
-Dog31 | K | 1
+Sample | Dog | Treatment | Read counts r1 | Read counts r2
+------ | --- | --------- | -------------- | -------------- 
+Dog1 | B | 2 | 118343 | 118343
+Dog2 | G | 3 | 108679 | 108679
+Dog3 | K | 3 | 101482 | 101482
+Dog8 | B | 4 | 108731 | 108731
+Dog9 | G | 0 | 109500 | 109500
+Dog10 | K | 4 | 79342 | 79342
+Dog15 | B | 1 | 131483 | 131483
+Dog16 | G | 4 | 114424 | 114424
+Dog17 | K | 0 | 99610 | 99610
+Dog22 | B | 3 | 145029 | 145029
+Dog23 | G | 1 | 193158 | 193158
+Dog24 | K | 2 | 162487 | 162487
+Dog29 | B | 0 | 122776 | 122776
+Dog30 | G | 2 | 137315 | 137315
+Dog31 | K | 1 | 150613 | 150613
 
 ## Outcomes
 * Clone a Git repos and use the code.
@@ -53,13 +53,13 @@ alignment_dir=$process_dir/align
 greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
 gold_db=/global/mb/amw/dbs/gold.fa
 ```
-### Tutorial pipeline
+## Tutorial pipeline
 ![Pipeline](/images/pipeline.png)
 
-### Tutorial directory structure
+## Tutorial directory structure
 Put image here
 
-### When you get lost or something is unclear
+## When you get lost or something is unclear
 1. All the outputs have been generated here `....`
 1. Please find someone next to you that looks like they know what they are doing. 
 1. Let me know.
@@ -233,10 +233,26 @@ biom summarize-table -i $process_dir/otus_table.tax.biom -o $process_dir/otus_ta
 biom summarize-table --qualitative -i $process_dir/otus_table.tax.biom -o $process_dir/otus_table.tax.biom.summary.qualitative
 ```
 
-
-
-
-
-
-
-
+## Software needed to run this tutorial
+* FastQC (https://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+* ImageMagick (https://www.imagemagick.org/script/download.php)
+* Fastx-toolkit (http://hannonlab.cshl.edu/fastx_toolkit/)
+* Fasta-splitter (http://kirill-kryukov.com/study/tools/fasta-splitter/files/fasta-splitter-0.2.4.zip)
+* USEARCH (http://www.drive5.com/usearch/download.html)
+* UPARSE helper scripts (http://drive5.com/python/python_scripts.tar.gz)
+* QIIME base installation with RDP classifier (http://qiime.org/install/alternative.html)
+* R modules
+ * phyloseq
+ * ggplot2
+ * gridExtra
+ * dunn.test
+ * NMF
+ * vegan
+ * corrplot
+ * psych
+ * matrixStats
+ * fifer
+ * metagenomeSeq
+ * randomForest
+ * dplyr
+ * ROCR
