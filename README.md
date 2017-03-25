@@ -25,9 +25,9 @@ Dog30 | G | 2
 Dog31 | K | 1
 
 ## Outcomes
-* Clone a Git repos and use the code
-* Edit files and command line options, work with bash variables, work with bash pipes, use awk, use bash loops, use bash snippets
-* Run a 16S analysis pipeline from raw reads up to OTU classification and alignment
+* Clone a Git repos and use the code.
+* Edit files and command line options, work with bash variables, use bash snippets (pipes, awk, loops).
+* Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
 
 ## Do some local setup
 ### Maybe pull this code here
@@ -40,9 +40,15 @@ export PATH=$PATH:/global/mb/amw/soft/uparse_helpers
 export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
 ```
 
-### Setup some directories
+### Setup some directory and database variables
 ```bash
-uparse_dir=/global/mb/amw/run/process/uparse
+raw_reads=/global/mb/amw/dog_stool_samples
+process_dir=/global/mb/amw/run/process
+uparse_dir=$process_dir/uparse
+taxonomy_dir=$process_dir/tax
+alignment_dir=$process_dir/align
+greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
+gold_db=/global/mb/amw/dbs/gold.fa
 ```
 ### Add pipeline here
 Add image here  
@@ -152,7 +158,7 @@ This will take about 30 seconds. Once done lets count how many OTUs were generat
 
 ### 2.9 Chimera removal
 ```bash
-usearch -uchime2_ref $uparse_dir/otus_raw.fa -db /global/mb/amw/dbs/gold.fa -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+usearch -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
 ```
 This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
 
@@ -183,8 +189,46 @@ This will take about 1 minute to complete. Lets have a look at the final mapping
 ```bash
 uc2otutab.py $uparse_dir/otus_mappedOUT.uc > $uparse_dir/otus_table.tab.txt
 ```
-THis will take about 20 seconds to complete. Have a look that the OTU table generated.
+This will take about 20 seconds to complete. Have a look that the OTU table generated.
 
+### 2.12 Assign taxonomy
+```bash
+assign_taxonomy.py -i $uparse_dir/otus_repsetOUT.fa -o tax_dir -r $greengenes_db/rep_set/97_otus.fasta -t $greengenes_db/taxonomy/97_otu_taxonomy.txt -m uclust
+```
+This will take about **X** minutes to complete. Let look at the GreenGenes files and also the final output.
+
+For downstream analysis we need a .biom file. Lets create that from the OTU table.
+```bash
+biom convert -i $uparse_dir/otus_table.tab.txt --table-type="OTU table" --to-json -o $process_dir/otus_table.biom
+```
+Now lets add the taxonomy annotation to the .biom file.
+```bash
+biom add-metadata -i $process_dir/otus_table.biom -o $process_dir/otus_table.tax.biom --observation-metadata-fp $taxonomy_dir/otus_repsetOUT_tax_assignments.txt --observation-header OTUID,taxonomy,confidence --sc-separated taxonomy --float-fields confidence --output-as-json
+```
+Lets have a look if the annotation has been added.
+
+### 2.13 Create phylogenetic tree
+Allign sequences against a template database
+```bash
+align_seqs.py -m pynast -i $uparse_dir/otus_repsetOUT.fa -o $align_dir -t $greengenes_db/rep_set_aligned/97_otus.fasta
+```
+This will take about 5 minutes to complete. Have a look at the output.
+
+Now filter the alignment to remove gaps.
+```bash
+filter_alignment.py -i $align_dir/otus_repsetOUT_aligned.fasta -o $align_dir/filtered
+```
+Create a phylogenetic tree
+```
+make_phylogeny.py -i $align_dir/filtered/otus_repsetOUT_aligned_pfiltered.fasta -o $process_dir/otus_repsetOUT_aligned_pfiltered.tre
+```
+### 2.14 Create some summaries
+```bash
+biom summarize-table -i $process_dir/otus_table.tax.biom -o $process_dir/otus_table.tax.biom.summary.quantative
+```
+```bash
+biom summarize-table --qualitative -i $process_dir/otus_table.tax.biom -o $process_dir/otus_table.tax.biom.summary.qualitative
+```
 
 
 
