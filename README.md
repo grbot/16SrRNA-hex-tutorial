@@ -33,6 +33,12 @@ Dog31 | K | 1
 ### Maybe pull this code here
 
 ### Setup some PATHS
+```bash
+export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/File-Util-3.27/blib/lib
+export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/Class-OOorNO-0.011/blib/lib
+export PATH=$PATH:/global/mb/amw/soft/uparse_helpers
+export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
+```
 
 ### Setup some directories
 ```bash
@@ -44,9 +50,10 @@ Add image here
 ### Tutorial directory structure
 Put image here
 
-### When you get lost
-All the outputs have been generated here `....`
-    
+### When you get lost or something is unclear
+1. All the outputs have been generated here `....`
+1. Please find someone next to you that looks like they know what they are doing. 
+1. Let me know.
 ## 1. Lets do some QC on the raw data
 
 To be able to run all tools in the tutorial be sure the bionf module is loaded
@@ -128,6 +135,57 @@ cat $filtered_fasta_dir/*.fa > $uparse_dir/filtered_all.fa
 ```bash
 cat $uparse_dir/filtered_all.fa | grep -v "^>" | grep -v [^ACGTacgt] | sort -d | uniq -c | while read abundance sequence ; do hash=$(printf "${sequence}" | sha1sum); hash=${hash:0:40};printf ">%s;size=%d;\n%s\n" "${hash}" "${abundance}" "${sequence}"; done > $uparse_dir/filtered_all.uniques.fa 2> $uparse_dir/filtered_all.uniques.fa.e
 ```
+This will take about 15 minutes. Lets have a look at the headers.
+
+### 2.8 OTU picking
+Sort by size
+```bash
+minsize=2
+usearch -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
+```
+Do OTU picking
+```bash
+otu_radius_pct=3
+usearch -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
+```
+This will take about 30 seconds. Once done lets count how many OTUs were generated.
+
+### 2.9 Chimera removal
+```bash
+usearch -uchime2_ref $uparse_dir/otus_raw.fa -db /global/mb/amw/dbs/gold.fa -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+```
+This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
+
+### 2.10 De-dereplication
+
+Rename OTU headers
+```bash
+fasta_number.py $uparse_dir/otus_chimOUT.fa OTU_ > $uparse_dir/otus_repsetOUT.fa
+```
+Split fasta files to reduce memory on `usearch_global` run
+```bash
+mkdir $uparse_dir/split_files
+cd $uparse_dir/split_files
+
+fasta-splitter.pl --n-parts 100 --out-dir $uparse_dir/split_files/ $uparse_dir/filtered_all.fa
+```
+Do de-dereplication
+```bash
+for i in $(ls $uparse_dir/split_files/*.fa); do usearch -usearch_global $i -db $uparse_dir/otus_repsetOUT.fa -id 0.97 -strand plus -uc $i.map.uc; done
+```
+Combine mappings
+```bash
+cat $uparse_dir/split_files/*.map.uc > $uparse_dir/otus_mappedOUT.uc
+```
+This will take about 1 minute to complete. Lets have a look at the final mapping file.
+
+### 2.11 Create QIIME compatible OTU table
+```bash
+uc2otutab.py $uparse_dir/otus_mappedOUT.uc > $uparse_dir/otus_table.tab.txt
+```
+THis will take about 20 seconds to complete. Have a look that the OTU table generated.
+
+
 
 
 
