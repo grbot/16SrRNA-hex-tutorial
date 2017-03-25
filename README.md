@@ -50,8 +50,8 @@ alignment_dir=$process_dir/align
 greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
 gold_db=/global/mb/amw/dbs/gold.fa
 ```
-### Add pipeline here
-Add image here  
+### Tutorial pipeline
+![Pipeline](/images/pipeline.png)
 
 ### Tutorial directory structure
 Put image here
