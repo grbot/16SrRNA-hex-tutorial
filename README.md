@@ -54,7 +54,7 @@ greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
 gold_db=/global/mb/amw/dbs/gold.fa
 ```
 ## Tutorial pipeline
-![Pipeline](/images/pipeline.png)
+![Pipeline](images/pipeline.png)
 
 ## Tutorial directory structure
 Put image here
