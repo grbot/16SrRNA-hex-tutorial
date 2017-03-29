@@ -105,35 +105,34 @@ This will take about 10 minutes to run. Lets have a look at the headers once don
 ### 2.2 Merge the paired reads
 ```bash
 fastq_maxdiffs=3
-merged_dir="/global/mb/amw/run/process/uparse/merged"
-mkdir /global/mb/amw/run/process/uparse/merged
+merged_dir=$uparse_dir"/merged"
+mkdir $merged_dir
 
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); usearch -fastq_mergepairs $fastq_r1_renamed -reverse $fastq_r2_renamed -fastq_maxdiffs $fastq_maxdiffs -fastqout $merged_dir"/"$sid".merged.fastq";done < /global/mb/amw/run/code/sid.fastq_pair.list
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); usearch -fastq_mergepairs $fastq_r1_renamed -reverse $fastq_r2_renamed -fastq_maxdiffs $fastq_maxdiffs -fastqout $merged_dir"/"$sid".merged.fastq";done < $sid_fastq_pair_list
 ```
 This will take about 1 minute to run. Lets have a look at the fastq files of the merge reads.
 
 ### 2.3 Filter
 ```bash
 fastq_maxee=0.1
-filtered_dir="/global/mb/amw/run/process/uparse/filtered"
+filtered_dir=$uparse_dir"/filtered"
 mkdir $filtered_dir
 
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < /global/mb/amw/run/code/sid.fastq_pair.list
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < $sid_fastq_pair_list
 ```
 This will take about 1 minute to run. Lets do a read count on the filtered fastqs.
 
 ### 2.4 Run FastQC on the filtered reads
 ```bash
-filtered_fastqc_dir=/global/mb/amw/run/process/filtered.fastqc
+filtered_fastqc_dir=$uparse_dir"/filtered.fastqc"
 mkdir $filtered_fastqc_dir
-fastqc --extract -f fastq -o /global/mb/amw/run/process/usearch/filtered.fastqc -t 12 /global/mb/amw/run/process/usearch/filtered/*.fastq
+fastqc --extract -f fastq -o $uparse_dir"/filtered.fastqc" -t 12 $filtered_dir/*.fastq
 ```
 This will take about 2 minutes to run.
 
 ### 2.5 Combine FastQC reports
 ```bash
-
-/global/mb/amw/run/code/fastqc_combine/fastqc_combine.pl -v --out $filtered_fastqc_dir --skip --files "$filtered_fastqc_dir/*_fastqc"
+fastqc_combine.pl -v --out $filtered_fastqc_dir --skip --files "$filtered_fastqc_dir/*_fastqc"
 ```
 Lets have a look at the FastQC summaries and see if we notice any changes from the FastQC reports on the raw reads.
 
