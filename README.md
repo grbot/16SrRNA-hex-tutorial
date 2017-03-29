@@ -25,16 +25,10 @@ Dog30 | G | 2 | 137315 | 137315
 Dog31 | K | 1 | 150613 | 150613
 
 ## Outcomes
-* Clone a Git repos and use the code.
 * Edit files and command line options, work with bash variables, use bash snippets (pipes, awk, loops).
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
 
 ## Do some local setup
-### Pull the code in the repository
-Change to your home directory e.g. `cd /home/gerrit` and do
-```bash
-git clone https://github.com/grbot/amw.git
-```
 
 ### Setup some PATHS
 ```bash
@@ -49,7 +43,7 @@ Be sure you have created ad temporary directory for yourself
 ```bash
 mkdir /tmp/gerrit (here you need to set the name to your username)
 ```
-
+Now set some variables.
 ```bash
 raw_reads_dir=/local/mb/dog_stool_samples
 process_dir=/tmp/gerrit (here you need to change it to the temporary directory you have created)
@@ -63,11 +57,8 @@ sid_fastq_pair_list=/global/mb/amw/sid.fastq_pair.list
 ## Tutorial pipeline
 ![Pipeline](images/pipeline.png)
 
-## Tutorial directory structure
-Put image here
-
 ## When you get lost or something is unclear
-1. All the outputs have been generated here `....`
+1. All the outputs have been generated here `/global/mb/amw/run`
 1. Please find someone next to you that looks like they know what they are doing. 
 1. Let me know.
 ## 1. Lets do some QC on the raw data
@@ -246,17 +237,17 @@ biom summarize-table --qualitative -i $process_dir/otus_table.tax.biom -o $proce
 * UPARSE helper scripts (http://drive5.com/python/python_scripts.tar.gz)
 * QIIME base installation with RDP classifier (http://qiime.org/install/alternative.html)
 * R modules
- * phyloseq
- * ggplot2
- * gridExtra
- * dunn.test
- * NMF
- * vegan
- * corrplot
- * psych
- * matrixStats
- * fifer
- * metagenomeSeq
- * randomForest
- * dplyr
- * ROCR
+  * phyloseq
+  * ggplot2
+  * gridExtra
+  * dunn.test
+  * NMF
+  * vegan
+  * corrplot
+  * psych
+  * matrixStats
+  * fifer
+  * metagenomeSeq
+  * randomForest
+  * dplyr
+  * ROCR
