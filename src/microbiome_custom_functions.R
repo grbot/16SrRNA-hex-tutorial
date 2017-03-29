@@ -120,13 +120,14 @@ tax.lab <- function(otus, physeq, labrow=TRUE,merged=FALSE){
 #merged = if the data has been merged at a given taxonomic level - supply column name e.g. "Genus"
 #distfun = distance function used, default 'euclidian'
 #hclustfun = clustering function used, default 'average'
+#scale: see aheatmap() from NMF package for details. Should heatmap rows/columns be scaled?
 
 #---------------------
 #Generic heatmap function using package NMF
 #---------------------
 heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.samples = NULL, 
 		annot.cols = NULL,colours = NULL, order.by = NULL,main=NULL, subt=NULL,filename,
-		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=1, cexRow=1){
+		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=1, cexRow=1, scale = "none"){
 	if(plot.otus==TRUE){
 		#If plotting OTUs - get OTUs
 		otus <- otu_table(physeq)
@@ -187,6 +188,7 @@ heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.sampl
 	pdf(filename)
 	a <- aheatmap(plot, main = main,
 			sub = subt,
+			scale = scale,
 			Colv = Colv,
 			Rowv = rows.sortby,
 			annCol = a.track,
@@ -202,6 +204,7 @@ heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.sampl
 	a <- aheatmap(plot, main = main,
 			sub = subt,
 			Colv = Colv,
+			scale = scale,
 			Rowv = rows.sortby,
 			annCol = a.track,
 			annColors = colours,
