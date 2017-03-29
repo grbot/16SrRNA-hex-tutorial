@@ -38,11 +38,7 @@ git clone https://github.com/grbot/amw.git
 
 ### Setup some PATHS
 ```bash
-export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/File-Util-3.27/blib/lib
-export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/Class-OOorNO-0.011/blib/lib
-export PATH=$PATH:/global/mb/amw/soft/uparse_helpers
 export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
-------
 export PATH=/global/mb/amw/soft/ImageMagick-7.0.5-3/install/bin:$PATH
 export PATH=$PATH:/global/mb/amw/soft/amw-src
 export PATH=$PATH:/global/mb/amw/soft/amw-src/fastqc_combine
@@ -157,7 +153,7 @@ This will take about 15 minutes. Lets have a look at the headers.
 ### 2.8 OTU picking
 Sort by size
 ```bash
-minsize=2
+min_size=2
 usearch -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
 ```
 Do OTU picking
@@ -182,8 +178,6 @@ fasta_number.py $uparse_dir/otus_chimOUT.fa OTU_ > $uparse_dir/otus_repsetOUT.fa
 Split fasta files to reduce memory on `usearch_global` run
 ```bash
 mkdir $uparse_dir/split_files
-cd $uparse_dir/split_files
-
 fasta-splitter.pl --n-parts 100 --out-dir $uparse_dir/split_files/ $uparse_dir/filtered_all.fa
 ```
 Do de-dereplication
@@ -204,9 +198,10 @@ This will take about 20 seconds to complete. Have a look that the OTU table gene
 
 ### 2.12 Assign taxonomy
 ```bash
-assign_taxonomy.py -i $uparse_dir/otus_repsetOUT.fa -o tax_dir -r $greengenes_db/rep_set/97_otus.fasta -t $greengenes_db/taxonomy/97_otu_taxonomy.txt -m uclust
+mkdir $taxonomy_dir
+assign_taxonomy.py -i $uparse_dir/otus_repsetOUT.fa -o $taxonomy_dir -r $greengenes_db/rep_set/97_otus.fasta -t $greengenes_db/taxonomy/97_otu_taxonomy.txt -m uclust
 ```
-This will take about **X** minutes to complete. Let look at the GreenGenes files and also the final output.
+This will take about a minutee to complete. Let look at the GreenGenes files and also the final output.
 
 For downstream analysis we need a .biom file. Lets create that from the OTU table.
 ```bash
@@ -221,17 +216,18 @@ Lets have a look if the annotation has been added.
 ### 2.13 Create phylogenetic tree
 Allign sequences against a template database
 ```bash
-align_seqs.py -m pynast -i $uparse_dir/otus_repsetOUT.fa -o $align_dir -t $greengenes_db/rep_set_aligned/97_otus.fasta
+mkdir $alignment_dir
+align_seqs.py -m pynast -i $uparse_dir/otus_repsetOUT.fa -o $alignment_dir -t $greengenes_db/rep_set_aligned/97_otus.fasta
 ```
 This will take about 5 minutes to complete. Have a look at the output.
 
 Now filter the alignment to remove gaps.
 ```bash
-filter_alignment.py -i $align_dir/otus_repsetOUT_aligned.fasta -o $align_dir/filtered
+filter_alignment.py -i $alignment_dir/otus_repsetOUT_aligned.fasta -o $alignment_dir/filtered
 ```
 Create a phylogenetic tree
 ```
-make_phylogeny.py -i $align_dir/filtered/otus_repsetOUT_aligned_pfiltered.fasta -o $process_dir/otus_repsetOUT_aligned_pfiltered.tre
+make_phylogeny.py -i $alignment_dir/filtered/otus_repsetOUT_aligned_pfiltered.fasta -o $process_dir/otus_repsetOUT_aligned_pfiltered.tre
 ```
 ### 2.14 Create some summaries
 ```bash
