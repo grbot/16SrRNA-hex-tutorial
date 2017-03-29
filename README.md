@@ -2,7 +2,7 @@
 
 ## The dataset
 
-The dataset we will be working are the practice dataset from the [H3ABioNet 16S rDNA diversity analysis SOP](http://www.h3abionet.org/tools-and-resources/sops/16s-rrna-diversity-analysis). The source data can be accessed [here](http://h3data.cbio.uct.ac.za/assessments/16SrRNADiversityAnalysis/practice) but for our purposes it is already on the cluster and stored here:`/global/mb/amw/dog_stool_samples`
+The dataset we will be working are the practice dataset from the [H3ABioNet 16S rDNA diversity analysis SOP](http://www.h3abionet.org/tools-and-resources/sops/16s-rrna-diversity-analysis). The source data can be accessed [here](http://h3data.cbio.uct.ac.za/assessments/16SrRNADiversityAnalysis/practice) but for our purposes it is already on the cluster and stored here:`/local/mb/dog_stool_samples`
 
 The table below contains the metadata associated with the dog stool samples. There are three dogs which are treated with increased percentage of a compound in their diet: 5 different treatments (0-4, representing an increased percentage of a compound in their diet).
 
@@ -31,6 +31,7 @@ Dog31 | K | 1 | 150613 | 150613
 
 ## Do some local setup
 ### Pull the code in the repository
+Change to your home directory e.g. `cd /home/gerrit` and do
 ```bash
 git clone https://github.com/grbot/amw.git
 ```
@@ -45,8 +46,8 @@ export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
 
 ### Setup some directory and database variables
 ```bash
-raw_reads=/global/mb/amw/dog_stool_samples
-process_dir=/global/mb/amw/run/process
+raw_reads=/local/mb/dog_stool_samples
+process_dir=/tmp/gerrit (here you need to change it to the temp directory you've created)
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
@@ -65,9 +66,10 @@ Put image here
 1. Let me know.
 ## 1. Lets do some QC on the raw data
 
-To be able to run all tools in the tutorial be sure the bionf module is loaded
+To be able to run all tools in the tutorial be sure these modules are loaded
 ```bash
 module load bioinf
+module load microbiome
 ```
 ### 1.1 Run FastQC
 ```bash
