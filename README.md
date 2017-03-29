@@ -42,17 +42,27 @@ export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/File-Util-3.27/blib/lib
 export PERL5LIB=$PERL5LIB:/global/mb/amw/soft/Class-OOorNO-0.011/blib/lib
 export PATH=$PATH:/global/mb/amw/soft/uparse_helpers
 export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
+------
+export PATH=/global/mb/amw/soft/ImageMagick-7.0.5-3/install/bin:$PATH
+export PATH=$PATH:/global/mb/amw/soft/amw-src
+export PATH=$PATH:/global/mb/amw/soft/amw-src/fastqc_combine
 ```
 
 ### Setup some directory and database variables
+Be sure you have created ad temporary directory for yourself
 ```bash
-raw_reads=/local/mb/dog_stool_samples
-process_dir=/tmp/gerrit (here you need to change it to the temp directory you've created)
+mkdir /tmp/gerrit (here you need to set the name to your username)
+```
+
+```bash
+raw_reads_dir=/local/mb/dog_stool_samples
+process_dir=/tmp/gerrit (here you need to change it to the temporary directory you have created)
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
 greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
 gold_db=/global/mb/amw/dbs/gold.fa
+sid_fastq_pair_list=/global/mb/amw/sid.fastq_pair.list
 ```
 ## Tutorial pipeline
 ![Pipeline](images/pipeline.png)
@@ -73,25 +83,22 @@ module load microbiome
 ```
 ### 1.1 Run FastQC
 ```bash
-fastq_dir=/global/mb/amw/dog_stool_samples
-fastqc_dir=/global/mb/amw/run/process/fastqc
-
+fastqc_dir=$process_dir/fastqc
 mkdir $fastqc_dir
-fastqc --extract -f fastq -o $fastqc_dir -t 12 fastq_dir/*
+fastqc --extract -f fastq -o $fastqc_dir -t 12 raw_reads_dir/*
 ```
 ### 1.2 Combine FastQC reports
 ```bash
-fastqc_dir=/global/mb/amw/run/process/fastqc
-/global/mb/amw/run/code/fastqc_combine/fastqc_combine.pl -v --out $fastqc_dir --skip --files "$fastqc_dir/*_fastqc"
+fastqc_combine.pl -v --out $fastqc_dir --skip --files "$fastqc_dir/*_fastqc"
 ```
 Now lets view the reports.
 
 ## 2. Run the UPARSE pipeline
 ### 2.1 First rename the read headers so that they are compatible with the UPARSE pipline
 ```bash
-renamed_dir="/global/mb/amw/run/process/usearch/renamed"
-mkdir renamed
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); /global/mb/amw/run/code/rename_fastq_headers.sh $sid $fastq_r1 $fastq_r2 $fastq_r1_renamed $fastq_r2_renamed;done < /global/mb/amw/run/code/sid.fastq_pair.list
+renamed_dir=$uparse_dir"/renamed"
+mkdir -p $renamed_dir
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); rename_fastq_headers.sh $sid $fastq_r1 $fastq_r2 $fastq_r1_renamed $fastq_r2_renamed;done < $sid_fastq_pair_list
 ```
 This will take about 10 minutes to run. Lets have a look at the headers once done.
 
