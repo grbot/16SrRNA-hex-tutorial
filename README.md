@@ -138,9 +138,9 @@ Lets have a look at the FastQC summaries and see if we notice any changes from t
 
 ### 2.6 Convert Fastq to Fasta
 ```bash
-filtered_fasta_dir=/global/mb/amw/run/process/usearch/filtered.fasta
+filtered_fasta_dir=$uparse_dir"/filtered.fasta"
 mkdir $filtered_fasta_dir
-for i in `ls -1 /global/mb/amw/run/process/usearch/filtered/*.fastq`; do filename=$(basename "$i"); base="${filename%.*}"; seqtk seq -A $i > $filtered_fasta_dir/$base.fa; done
+for i in `ls -1 $filtered_dir/*.fastq`; do filename=$(basename "$i"); base="${filename%.*}"; seqtk seq -A $i > $filtered_fasta_dir/$base.fa; done
 ```
 Lets have a look at the fasta format.
 
