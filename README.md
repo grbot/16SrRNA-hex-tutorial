@@ -72,7 +72,7 @@ module load microbiome
 ```bash
 fastqc_dir=$process_dir/fastqc
 mkdir $fastqc_dir
-fastqc --extract -f fastq -o $fastqc_dir -t 12 $raw_reads_dir/*
+fastqc --extract -f fastq -o $fastqc_dir -t 6 $raw_reads_dir/*
 ```
 ### 1.2 Combine FastQC reports
 ```bash
@@ -113,7 +113,7 @@ This will take about 1 minute to run. Lets do a read count on the filtered fastq
 ```bash
 filtered_fastqc_dir=$uparse_dir"/filtered.fastqc"
 mkdir $filtered_fastqc_dir
-fastqc --extract -f fastq -o $uparse_dir"/filtered.fastqc" -t 12 $filtered_dir/*.fastq
+fastqc --extract -f fastq -o $uparse_dir"/filtered.fastqc" -t 6 $filtered_dir/*.fastq
 ```
 This will take about 2 minutes to run.
 
