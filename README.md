@@ -72,7 +72,7 @@ module load microbiome
 ```bash
 fastqc_dir=$process_dir/fastqc
 mkdir $fastqc_dir
-fastqc --extract -f fastq -o $fastqc_dir -t 12 raw_reads_dir/*
+fastqc --extract -f fastq -o $fastqc_dir -t 12 $raw_reads_dir/*
 ```
 ### 1.2 Combine FastQC reports
 ```bash
