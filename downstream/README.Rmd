@@ -2,7 +2,7 @@
 title: "R downtream analysis of dog stool samples"
 author: "Katie Lennard and Gerrit Botha"
 date: "28 March 2017"
-output: html_document
+output: md_document
 ---
 Background
 -------------------------------------------

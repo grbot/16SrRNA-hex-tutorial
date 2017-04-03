@@ -1482,3 +1482,21 @@ Now compare dog G vs. dog B (individual taxa)
     ## [73] coin_1.1-3            xtable_1.8-2          survival_2.41-2      
     ## [76] randomForestSRC_2.4.2 tibble_1.2            iterators_1.0.8      
     ## [79] IRanges_2.8.2         fields_8.10           TH.data_1.0-8
+
+Packages req required run this tutorial
+---------------------------------------
+
+-   phyloseq
+-   ggplot2
+-   gridExtra
+-   dunn.test
+-   NMF
+-   vegan
+-   corrplot
+-   psych
+-   matrixStats
+-   fifer
+-   metagenomeSeq
+-   randomForest
+-   dplyr
+-   ROCR
