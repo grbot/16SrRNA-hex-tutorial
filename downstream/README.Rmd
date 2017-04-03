@@ -2,7 +2,7 @@
 title: "R downtream analysis of dog stool samples"
 author: "Katie Lennard and Gerrit Botha"
 date: "28 March 2017"
-output: md_document
+output: html_document
 ---
 Background
 -------------------------------------------
@@ -35,7 +35,6 @@ source("/home/gerrit/workspace/amw/src/microbiome_custom_functions.R")
 ```{r, echo=TRUE}
 setwd("/home/gerrit/scratch/amw")
 inDir <- getwd()
-outDir <- getwd()
 outDir <- paste0(getwd(),"/downstream") # Specify output directory
 phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
 		verbose = TRUE)#
@@ -45,6 +44,7 @@ sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
 tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
 # Merge phy and tree
 phy <- merge_phyloseq(phy,tree)
+
 ```
 **Data cleanup**
 
@@ -60,6 +60,11 @@ tax_table(phy)[,"Order"] <- sub("o__","",tax_table(phy)[,"Order"])
 tax_table(phy)[,"Family"] <- sub("f__","",tax_table(phy)[,"Family"])
 tax_table(phy)[,"Genus"] <- sub("g__","",tax_table(phy)[,"Genus"])
 tax_table(phy)[,"Species"] <- sub("s__","",tax_table(phy)[,"Species"])
+```
+**Need to filter out unclassified OTUs otherwise custom functions will fail**
+```{r, echo=TRUE}
+t= which(is.na(tax_table(phy)[,"Phylum"]))
+tax_table(phy) = tax_table(phy)[-t,]
 ```
 **Import metadata and merge with phyloseq object**
 
@@ -190,6 +195,26 @@ pdf(paste0(outDir,"/NMDS_Dogs_treatment_Bray_Curtis.pdf"),8,5)
 MDS.1
 dev.off()
 ```
+**Create a heatmap of taxa merged at the lowest available taxonomic level**
+```{r,echo=TRUE, warning=FALSE}
+M.phy <- tax_glom.kv(M.f) # This function is available in the 'microbiome_custom_functions.R' script loaded at the beginning of this script
+ntaxa(M.phy)
+filename <- c("heatmap_merged_taxa")
+main <- paste("Merged taxa, Bray-Curtis distance")
+f = paste0(outDir,filename,".pdf")
+# Color specification for column annotations above heatmap:
+D.cols = c("B"="#CC79A7","G"="#56B4E9","K"="#F0E442")
+colours = list(Dog=D.cols)
+
+# Create distance matrix and calculate tree:
+set.seed(2)
+diss <- distance(M.phy,method = "bray", type = "samples")
+clust.res<-hclust(diss)
+sample.order = clust.res$order
+# Heatmap is output to file (the heatmap.k function can be found in the 'microbiome_custom_functions.R' script)
+hm = heatmap.k(physeq= M.phy, annot.cols = c(1,2), main = main,filename = f,colours=colours,Colv = sample.order,labrow = TRUE, cexCol = 2)	
+print(hm)
+```
 **Barplots by dog**
 ------------------------------
 ```{r,echo=TRUE}
@@ -227,8 +252,21 @@ RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfe
 
 The class error rates are 0% (even one OTU enough to discriminate between Dog G and B?)
 
+What if we used merged OTUs?
+```{r, echo=TRUE, warning=FALSE}
+merged.phy <- tax_glom.kv(phy.temp)
+RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs")
+```
 **Differential abundance testing using MetagenomeSeq package**
 
+Lets again compare dog G vs. dog B (merged taxa)
+
+```{r, echo=TRUE, warning=FALSE}
+colours = list(Dog=D.cols)
+a = super.fitZig.kv(physeq = merged.phy,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_taxa_merged"),
+heatmap.descriptor=c("tax_annot"), main=c("Dog G vs. B, taxa merged"), subt=c("subt = FDR < ###0.05,|coeff| >= 1.25, >20%+ in either group"), ordered=TRUE, p=0.05, FC = 1.25, perc=0.2, extra.cols = c("Treatment"))
+print(a)
+```
 Now compare dog G vs. dog B (individual taxa)
 ```{r, echo=TRUE, warning=FALSE}
 b = super.fitZig.kv(physeq = phy.temp,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_OTUs"),
@@ -237,3 +275,19 @@ b = super.fitZig.kv(physeq = phy.temp,factor = "Dog",outDir = outDir,FileName =c
 b
 sessionInfo()
 ```
+
+## Packages req required run this tutorial
+* phyloseq
+* ggplot2
+* gridExtra
+* dunn.test
+* NMF
+* vegan
+* corrplot
+* psych
+* matrixStats
+* fifer
+* metagenomeSeq
+* randomForest
+* dplyr
+* ROCR

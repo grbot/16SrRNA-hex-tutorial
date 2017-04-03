@@ -235,19 +235,4 @@ biom summarize-table --qualitative -i $process_dir/otus_table.tax.biom -o $proce
 * Fasta-splitter (http://kirill-kryukov.com/study/tools/fasta-splitter/files/fasta-splitter-0.2.4.zip)
 * USEARCH (http://www.drive5.com/usearch/download.html)
 * UPARSE helper scripts (http://drive5.com/python/python_scripts.tar.gz)
-* QIIME base installation with RDP classifier (http://qiime.org/install/alternative.html)
-* R modules
-  * phyloseq
-  * ggplot2
-  * gridExtra
-  * dunn.test
-  * NMF
-  * vegan
-  * corrplot
-  * psych
-  * matrixStats
-  * fifer
-  * metagenomeSeq
-  * randomForest
-  * dplyr
-  * ROCR
+* QIIME base (http://qiime.org/install/alternative.html)
