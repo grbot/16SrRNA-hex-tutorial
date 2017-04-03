@@ -27,6 +27,7 @@ Dog31 | K | 1 | 150613 | 150613
 ## Outcomes
 * Edit files and command line options, work with bash variables, use bash snippets (pipes, awk, loops).
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
+* Once done with this tutorial you can continue with the [R downstream analysis tutorial](https://github.com/grbot/amw/downsteam) using the data generated in this tutorial.
 
 ## Do some local setup
 
