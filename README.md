@@ -33,8 +33,8 @@ Dog31 | K | 1 | 150613 | 150613
 
 ### Setup some PATHS
 ```bash
-export PATH=$PATH:/global/mb/amw/soft/fasta-splitter-0.2.4
-export PATH=/global/mb/amw/soft/ImageMagick-7.0.5-3/install/bin:$PATH
+export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
+export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
 export PATH=$PATH:/global/mb/amw/soft/amw-src
 export PATH=$PATH:/global/mb/amw/soft/amw-src/fastqc_combine
 ```
