@@ -98,7 +98,7 @@ fastq_maxee=0.1
 filtered_dir=$uparse_dir"/filtered"
 mkdir $filtered_dir
 
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch9 -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < $sid_fastq_pair_list
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch9 -threads 1 -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < $sid_fastq_pair_list
 ```
 This will take about 1 minute to run. Lets do a read count on the filtered fastqs.
 
