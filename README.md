@@ -31,12 +31,9 @@ Dog31 | K | 1 | 150613 | 150613
 
 ## Do some local setup
 
-### Setup some PATHS
+### Activate software in the PATH
 ```bash
-export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
-export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
-export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src
-export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/fastqc_combine
+source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
 ```
 
 ### Setup some directory and database variables
@@ -64,11 +61,6 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 1. Let me know.
 ## 1. Lets do some QC on the raw data
 
-To be able to run all tools in the tutorial be sure these modules are loaded
-```bash
-module load bioinf
-module load microbiome
-```
 ### 1.1 Run FastQC
 ```bash
 fastqc_dir=$process_dir/fastqc
@@ -96,7 +88,7 @@ fastq_maxdiffs=3
 merged_dir=$uparse_dir"/merged"
 mkdir $merged_dir
 
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); usearch -fastq_mergepairs $fastq_r1_renamed -reverse $fastq_r2_renamed -fastq_maxdiffs $fastq_maxdiffs -fastqout $merged_dir"/"$sid".merged.fastq";done < $sid_fastq_pair_list
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`; fastq_r1=`echo $sid_fastq_pair | awk -F ' ' '{print $2}'`; fastq_r2=`echo $sid_fastq_pair | awk -F ' ' '{print $3}'`; fastq_r1_renamed=$renamed_dir"/"$(basename $fastq_r1); fastq_r2_renamed=$renamed_dir"/"$(basename $fastq_r2); usearch9 -fastq_mergepairs $fastq_r1_renamed -reverse $fastq_r2_renamed -fastq_maxdiffs $fastq_maxdiffs -fastqout $merged_dir"/"$sid".merged.fastq";done < $sid_fastq_pair_list
 ```
 This will take about 1 minute to run. Lets have a look at the fastq files of the merge reads.
 
@@ -106,7 +98,7 @@ fastq_maxee=0.1
 filtered_dir=$uparse_dir"/filtered"
 mkdir $filtered_dir
 
-while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < $sid_fastq_pair_list
+while read sid_fastq_pair; do sid=`echo $sid_fastq_pair | awk -F ' ' '{print $1}'`;  usearch9 -fastq_filter $merged_dir"/"$sid".merged.fastq" -fastq_maxee $fastq_maxee -fastqout $filtered_dir"/"$sid".merged.filtered.fastq"  ;done < $sid_fastq_pair_list
 ```
 This will take about 1 minute to run. Lets do a read count on the filtered fastqs.
 
@@ -146,18 +138,18 @@ This will take about 15 minutes. Lets have a look at the headers.
 Sort by size
 ```bash
 min_size=2
-usearch -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
+usearch9 -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
 ```
 Do OTU picking
 ```bash
 otu_radius_pct=3
-usearch -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
+usearch9 -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
 ```
 This will take about 30 seconds. Once done lets count how many OTUs were generated.
 
 ### 2.9 Chimera removal
 ```bash
-usearch -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+usearch9 -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
 ```
 This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
 
@@ -174,7 +166,7 @@ fasta-splitter.pl --n-parts 100 --out-dir $uparse_dir/split_files/ $uparse_dir/f
 ```
 Do de-dereplication
 ```bash
-for i in $(ls $uparse_dir/split_files/*.fa); do usearch -usearch_global $i -db $uparse_dir/otus_repsetOUT.fa -id 0.97 -strand plus -uc $i.map.uc; done
+for i in $(ls $uparse_dir/split_files/*.fa); do usearch9 -usearch_global $i -db $uparse_dir/otus_repsetOUT.fa -id 0.97 -strand plus -uc $i.map.uc; done
 ```
 Combine mappings
 ```bash
