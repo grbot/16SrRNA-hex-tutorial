@@ -13,8 +13,9 @@ export BLASTMAT=/opt/exp_soft/qiime/packages/extras/blast-2.2.22/data
 export DONT_USE_MPI=1
 
 # Additional software
-export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
+export PATH=$PATH:/opt/exp_soft/qiime/packages/other
 export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
+export PATH=$PATH:/opt/exp_soft/seqtk
 
 # Tutorial specific code
 export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src
