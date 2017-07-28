@@ -2,7 +2,7 @@
 
 ## The dataset
 
-The dataset we will be working are the practice dataset from the [H3ABioNet 16S rDNA diversity analysis SOP](http://www.h3abionet.org/tools-and-resources/sops/16s-rrna-diversity-analysis). The source data can be accessed [here](http://h3data.cbio.uct.ac.za/assessments/16SrRNADiversityAnalysis/practice) but for our purposes it is already on the cluster and stored here:`/local/mb/dog_stool_samples`
+The dataset we will be working are the practice dataset from the [H3ABioNet 16S rDNA diversity analysis SOP](http://www.h3abionet.org/tools-and-resources/sops/16s-rrna-diversity-analysis). The source data can be accessed [here](http://h3data.cbio.uct.ac.za/assessments/16SrRNADiversityAnalysis/practice) but for our purposes it is already on the cluster and stored here:`/scratch/DB/bio/training/16SrRNA/dog_stool_samples`
 
 The table below contains the metadata associated with the dog stool samples. There are three dogs which are treated with increased percentage of a compound in their diet: 5 different treatments (0-4, representing an increased percentage of a compound in their diet).
 
@@ -27,7 +27,7 @@ Dog31 | K | 1 | 150613 | 150613
 ## Outcomes
 * Edit files and command line options, work with bash variables, use bash snippets (pipes, awk, loops).
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
-* Once done with this tutorial you can continue with the [R downstream analysis tutorial](https://github.com/grbot/amw/tree/master/downstream) using the data generated in this tutorial.
+* Once done with this tutorial you can continue with the [R downstream analysis tutorial](https://github.com/grbot/16SrRNA-hex-tutorial/tree/master/downstream) using the data generated in this tutorial.
 
 ## Do some local setup
 
@@ -35,8 +35,8 @@ Dog31 | K | 1 | 150613 | 150613
 ```bash
 export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
 export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
-export PATH=$PATH:/global/mb/amw/soft/amw-src
-export PATH=$PATH:/global/mb/amw/soft/amw-src/fastqc_combine
+export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src
+export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/fastqc_combine
 ```
 
 ### Setup some directory and database variables
@@ -51,9 +51,9 @@ process_dir=/tmp/gerrit (here you need to change it to the temporary directory y
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
-greengenes_db=/global/mb/amw/dbs/gg_13_8_otus
-gold_db=/global/mb/amw/dbs/gold.fa
-sid_fastq_pair_list=/global/mb/amw/sid.fastq_pair.list
+greengenes_db=/scratch/DB/bio/qiime/greengenes/gg_13_8_otus
+gold_db=/scratch/DB/bio/qiime/uchime/gold.fa
+sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fastq_pair.list
 ```
 ## Tutorial pipeline
 ![Pipeline](images/pipeline.png)
