@@ -67,9 +67,7 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 
 To be able to run all tools in the tutorial be sure these modules are loaded
 ```bash
-#module load bioinf
-#module load microbiome
-source /scratch/DB/bio/training/16SrRNA/activate_qiime.sh #GERRIT CHMOD NEEDED
+source /scratch/DB/bio/training/16SrRNA/activate_qiime.sh 
 ```
 ### 1.1 Run FastQC
 ```bash
@@ -172,7 +170,7 @@ fasta_number.py $uparse_dir/otus_chimOUT.fa OTU_ > $uparse_dir/otus_repsetOUT.fa
 Split fasta files to reduce memory on `usearch_global` run
 ```bash
 mkdir $uparse_dir/split_files
-cd $uparse_dir/split_files #specifying --out-dir with fasta-splitter.pl does not work, files just created in pwd
+cd $uparse_dir/split_files 
 fasta-splitter.pl --n-parts 100 $uparse_dir/filtered_all.fa
 ```
 Do de-dereplication
@@ -204,7 +202,7 @@ biom convert -i $uparse_dir/otus_table.tab.txt --table-type="OTU table" -o $proc
 ```
 Now lets add the taxonomy annotation to the .biom file.
 ```bash
-biom add-metadata -i $process_dir/otus_table.biom -o $process_dir/otus_table.tax.biom --observation-metadata-fp $taxonomy_dir/otus_repsetOUT_tax_assignments.txt --observation-header OTUID,taxonomy,confidence --sc-separated taxonomy --float-fields confidence --output-as-json
+biom add-metadata -i $process_dir/otus_table.biom -o $process_dir/otus_table.tax.biom --observation-metadata-fp $taxonomy_dir/otus_repsetOUT_tax_assignments.txt --observation-header OTUID,taxonomy,confidence --sc-separated taxonomy --float-fields confidence
 ```
 Lets have a look if the annotation has been added.
 
