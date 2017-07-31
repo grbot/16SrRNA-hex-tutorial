@@ -31,9 +31,13 @@ Dog31 | K | 1 | 150613 | 150613
 
 ## Do some local setup
 
-### Activate software in the PATH
+### Setup some PATHS
 ```bash
-source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
+export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
+export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
+export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src #CHMOD NEEDED
+export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/fastqc_combine #CHMOD NEEDED
+export PATH=$PATH:/opt/exp_soft/qiime/packages/other/FastQC/ #ADDED
 ```
 
 ### Setup some directory and database variables
@@ -43,7 +47,7 @@ mkdir /tmp/gerrit (here you need to set the name to your username)
 ```
 Now set some variables.
 ```bash
-raw_reads_dir=/local/mb/dog_stool_samples
+raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
 process_dir=/tmp/gerrit (here you need to change it to the temporary directory you have created)
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
@@ -56,11 +60,15 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 ![Pipeline](images/pipeline.png)
 
 ## When you get lost or something is unclear
-1. All the outputs have been generated here `/global/mb/amw/run`
+1. All the outputs have been generated here `/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results`
 1. Please find someone next to you that looks like they know what they are doing. 
 1. Let me know.
 ## 1. Lets do some QC on the raw data
 
+To be able to run all tools in the tutorial be sure these modules are loaded
+```bash
+source /scratch/DB/bio/training/16SrRNA/activate_qiime.sh 
+```
 ### 1.1 Run FastQC
 ```bash
 fastqc_dir=$process_dir/fastqc
@@ -138,18 +146,18 @@ This will take about 15 minutes. Lets have a look at the headers.
 Sort by size
 ```bash
 min_size=2
-usearch9 -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
+usearch -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
 ```
 Do OTU picking
 ```bash
 otu_radius_pct=3
-usearch9 -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
+usearch -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
 ```
 This will take about 30 seconds. Once done lets count how many OTUs were generated.
 
 ### 2.9 Chimera removal
 ```bash
-usearch9 -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+usearch -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
 ```
 This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
 
@@ -162,7 +170,8 @@ fasta_number.py $uparse_dir/otus_chimOUT.fa OTU_ > $uparse_dir/otus_repsetOUT.fa
 Split fasta files to reduce memory on `usearch_global` run
 ```bash
 mkdir $uparse_dir/split_files
-fasta-splitter.pl --n-parts 100 --out-dir $uparse_dir/split_files/ $uparse_dir/filtered_all.fa
+cd $uparse_dir/split_files 
+fasta-splitter.pl --n-parts 100 $uparse_dir/filtered_all.fa
 ```
 Do de-dereplication
 ```bash
@@ -189,11 +198,11 @@ This will take about a minutee to complete. Let look at the GreenGenes files and
 
 For downstream analysis we need a .biom file. Lets create that from the OTU table.
 ```bash
-biom convert -i $uparse_dir/otus_table.tab.txt --table-type="OTU table" --to-json -o $process_dir/otus_table.biom
+biom convert -i $uparse_dir/otus_table.tab.txt --table-type="OTU table" -o $process_dir/otus_table.biom
 ```
 Now lets add the taxonomy annotation to the .biom file.
 ```bash
-biom add-metadata -i $process_dir/otus_table.biom -o $process_dir/otus_table.tax.biom --observation-metadata-fp $taxonomy_dir/otus_repsetOUT_tax_assignments.txt --observation-header OTUID,taxonomy,confidence --sc-separated taxonomy --float-fields confidence --output-as-json
+biom add-metadata -i $process_dir/otus_table.biom -o $process_dir/otus_table.tax.biom --observation-metadata-fp $taxonomy_dir/otus_repsetOUT_tax_assignments.txt --observation-header OTUID,taxonomy,confidence --sc-separated taxonomy --float-fields confidence
 ```
 Lets have a look if the annotation has been added.
 
