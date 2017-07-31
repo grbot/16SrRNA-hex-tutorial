@@ -31,13 +31,9 @@ Dog31 | K | 1 | 150613 | 150613
 
 ## Do some local setup
 
-### Setup some PATHS
+### Activate software in PATH
 ```bash
-export PATH=$PATH:/opt/exp_soft/qiime/packages/other/
-export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
-export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src #CHMOD NEEDED
-export PATH=$PATH:/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/fastqc_combine #CHMOD NEEDED
-export PATH=$PATH:/opt/exp_soft/qiime/packages/other/FastQC/ #ADDED
+source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
 ```
 
 ### Setup some directory and database variables
@@ -65,10 +61,6 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 1. Let me know.
 ## 1. Lets do some QC on the raw data
 
-To be able to run all tools in the tutorial be sure these modules are loaded
-```bash
-source /scratch/DB/bio/training/16SrRNA/activate_qiime.sh 
-```
 ### 1.1 Run FastQC
 ```bash
 fastqc_dir=$process_dir/fastqc
@@ -146,18 +138,18 @@ This will take about 15 minutes. Lets have a look at the headers.
 Sort by size
 ```bash
 min_size=2
-usearch -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
+usearch9 -sortbysize $uparse_dir/filtered_all.uniques.fa -fastaout $uparse_dir/filtered_all.uniques.sorted.fa -minsize $min_size
 ```
 Do OTU picking
 ```bash
 otu_radius_pct=3
-usearch -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
+usearch9 -cluster_otus $uparse_dir/filtered_all.uniques.sorted.fa -otu_radius_pct $otu_radius_pct -otus $uparse_dir/otus_raw.fa
 ```
 This will take about 30 seconds. Once done lets count how many OTUs were generated.
 
 ### 2.9 Chimera removal
 ```bash
-usearch -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+usearch9 -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
 ```
 This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
 
