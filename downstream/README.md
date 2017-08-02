@@ -21,13 +21,16 @@ Import data and create phyloseq object
 **Import BIOM file (generated in QIIME) into a phyloseq object**
 
     library(phyloseq)
+    library(vegan)
     library(ggplot2)
     library(gridExtra)
     library(dunn.test)
+    library(randomForest)
+    library(dplyr)
 
 **Import custom functions used in script**
-
-    source("/home/gerrit/workspace/amw/src/microbiome_custom_functions.R")
+    setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
+    source(paste0(getwd(),"/microbiome_custom_functions.R"))
 
     ## Loading required package: pkgmaker
 
@@ -173,18 +176,18 @@ Import data and create phyloseq object
 
 **Set the working directory and import data**
 
-    setwd("/home/gerrit/scratch/amw")
+    setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial")
     inDir <- getwd()
-    outDir <- paste0(getwd(),"/downstream") # Specify output directory
-    phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
+    outDir <- paste0(getwd(),"/results/downstream_analyses") # Specify output directory
+    phy <- import_biom(BIOMfilename = paste0(inDir,"/results/otus_table.tax.biom"), 
             verbose = TRUE)#
     ntaxa(phy)#(number of OTUs)
 
-    ## [1] 181
+    ## [1] 179
 
     sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
     # Add phylogenetic tree (.tre file generated in QIIME)
-    tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
+    tree <- read_tree_greengenes(paste0(inDir,"/results/otus_repsetOUT_aligned_pfiltered.tre"))
     # Merge phy and tree
     phy <- merge_phyloseq(phy,tree)
 
@@ -264,8 +267,8 @@ fail**
 
 **Save phyloseq object as an .RData file**
 
-    save(phy, file = paste0(outDir,"/dog_stool.RData")) # Save annotated object as a .RData object
-    load(paste0(outDir,"/dog_stool.RData"))
+    save(phy, file = paste0(outDir,"/dog_stool.RData")) # Save annotated object as a .RData object for quick reload if required at a later stage
+    #load(paste0(outDir,"/dog_stool.RData")) #this is how you would reload the .RData object 'phy'
 
 Explore number of reads per sample, make rarefaction curves and filter data as necessary
 ----------------------------------------------------------------------------------------
@@ -280,7 +283,7 @@ Explore number of reads per sample, make rarefaction curves and filter data as n
     raremax <- min(reads)
     raremax
 
-    ## [1] 63966
+    ## [1] 63980
 
     rarecurve(t(otu_table(phy)), step = 100, sample = raremax,xlab = "number of reads/sample", ylab = "number of OTUs",
             label = FALSE, xlim = c(0,100000))
@@ -308,7 +311,7 @@ counts of a rare OTU)
     M.f = filter_taxa(M.std,function(x) sum(x > 10) > (0.02*length(x)) | sum(x) > 0.001*total, TRUE)
     ntaxa(M.f)
 
-    ## [1] 138
+    ## [1] 135
 
 **Basic exploratory plots: alpha- and beta-diversity, barplots, heatmap**
 -------------------------------------------------------------------------
@@ -336,13 +339,14 @@ irrespective of treatment?
     temp <- cbind(est,sample_data(M.f)[,"Dog"])
     head(temp)
 
-    ##        Shannon Dog
-    ## Dog10 2.893430   K
-    ## Dog15 2.566590   B
-    ## Dog16 2.930422   G
-    ## Dog17 2.850480   K
-    ## Dog1  3.216201   B
-    ## Dog22 2.538645   B
+    # head(temp)
+    #        Shannon Dog
+    # Dog10 2.859687   K
+    # Dog15 2.550581   B
+    # Dog16 2.819618   G
+    # Dog17 2.823232   K
+    # Dog1  3.177816   B
+    # Dog22 2.525255   B
 
     t <- kruskal.test(temp[,1]~temp[,2])
     t
@@ -351,14 +355,14 @@ irrespective of treatment?
     ##  Kruskal-Wallis rank sum test
     ## 
     ## data:  temp[, 1] by temp[, 2]
-    ## Kruskal-Wallis chi-squared = 4.94, df = 2, p-value = 0.08458
+    ## Kruskal-Wallis chi-squared = 2.54, df = 2, p-value = 0.2808
 
     dunn.test(temp[,1],temp[,2])#post-hoc testing to see which dogs are different
 
     ##   Kruskal-Wallis rank sum test
     ## 
     ## data: x and group
-    ## Kruskal-Wallis chi-squared = 4.94, df = 2, p-value = 0.08
+    ## Kruskal-Wallis chi-squared = 2.54, df = 2, p-value = 28
     ## 
     ## 
     ##                            Comparison of x by group                            
@@ -366,14 +370,15 @@ irrespective of treatment?
     ## Col Mean-|
     ## Row Mean |          B          G
     ## ---------+----------------------
-    ##        G |  -1.767766
-    ##          |     0.0385
+    ##        G |  -1.343502
+    ##          |     0.0896
     ##          |
-    ##        K |   0.282842   2.050609
-    ##          |     0.3886     0.0202
+    ##        K |   0.070710   1.414213
+    ##          |     0.4718     0.0786
+    ## 
 
-Dog G has significantly higher alpha diversity than dogs K and B
-irrespective of treatment
+Dog G has higher alpha diversity than dogs K and B
+irrespective of treatment, but this difference is not significant
 
 **Alpha diversity by treatment**
 
@@ -396,13 +401,14 @@ Are there significant differences in alpha diversity by treatment?
     temp <- cbind(est,sample_data(M.f)[,"Treatment"])
     head(temp)
 
+    ## head(temp)
     ##        Shannon Treatment
-    ## Dog10 2.893430         4
-    ## Dog15 2.566590         1
-    ## Dog16 2.930422         4
-    ## Dog17 2.850480         0
-    ## Dog1  3.216201         2
-    ## Dog22 2.538645         3
+    ## Dog10 2.859687         4
+    ## Dog15 2.550581         1
+    ## Dog16 2.819618         4
+    ## Dog17 2.823232         0
+    ## Dog1  3.177816         2
+    ## Dog22 2.525255         3
 
     t <- kruskal.test(temp[,1]~temp[,2])
     t
@@ -411,14 +417,14 @@ Are there significant differences in alpha diversity by treatment?
     ##  Kruskal-Wallis rank sum test
     ## 
     ## data:  temp[, 1] by temp[, 2]
-    ## Kruskal-Wallis chi-squared = 1.6, df = 4, p-value = 0.8088
+    ## Kruskal-Wallis chi-squared = 1.5667, df = 4, p-value = 0.8148
 
     dunn.test(temp[,1],temp[,2])
 
     ##   Kruskal-Wallis rank sum test
     ## 
     ## data: x and group
-    ## Kruskal-Wallis chi-squared = 1.6, df = 4, p-value = 0.81
+    ## Kruskal-Wallis chi-squared = 1.5667, df = 4, p-value = 0.81
     ## 
     ## 
     ##                            Comparison of x by group                            
@@ -426,57 +432,38 @@ Are there significant differences in alpha diversity by treatment?
     ## Col Mean-|
     ## Row Mean |          4          1          0          2
     ## ---------+--------------------------------------------
-    ##        1 |   0.273861
-    ##          |     0.3921
+    ##        1 |   0.365148
+    ##          |     0.3575
     ##          |
-    ##        0 |  -0.730296  -1.004158
-    ##          |     0.2326     0.1577
+    ##        0 |  -0.365148  -0.730296
+    ##          |     0.3575     0.2326
     ##          |
-    ##        2 |  -0.182574  -0.456435   0.547722
-    ##          |     0.4276     0.3240     0.2919
+    ##        2 |  -0.091287  -0.456435   0.273861
+    ##          |     0.4636     0.3240     0.3921
     ##          |
-    ##        3 |  -0.730296  -1.004158   0.000000  -0.547722
-    ##          |     0.2326     0.1577     0.5000     0.2919
+    ##        3 |  -0.821583  -1.186732  -0.456435  -0.730296
+    ##          |     0.2057     0.1177     0.3240     0.2326 
 
 **Beta diversity using NMDS with Bray-Curtis as distance metric**
 
     set.seed(2)
-    GP.ord.BC <- ordinate(M.f, "NMDS", "bray", k=2, trymax=100) # stress=0.09
-
-    ## Square root transformation
-    ## Wisconsin double standardization
-    ## Run 0 stress 0.07130578 
-    ## Run 1 stress 0.0709321 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.009855629  max resid 0.0279429 
-    ## Run 2 stress 0.0721892 
-    ## Run 3 stress 0.1100664 
-    ## Run 4 stress 0.07329299 
-    ## Run 5 stress 0.3620402 
-    ## Run 6 stress 0.07218952 
-    ## Run 7 stress 0.07398944 
-    ## Run 8 stress 0.2138891 
-    ## Run 9 stress 0.07241017 
-    ## Run 10 stress 0.07093206 
-    ## ... New best solution
-    ## ... Procrustes: rmse 5.022355e-05  max resid 0.0001204355 
-    ## ... Similar to previous best
-    ## Run 11 stress 0.1190393 
-    ## Run 12 stress 0.07093231 
-    ## ... Procrustes: rmse 0.0003115158  max resid 0.0007574303 
-    ## ... Similar to previous best
-    ## Run 13 stress 0.07218918 
-    ## Run 14 stress 0.1100655 
-    ## Run 15 stress 0.07093235 
-    ## ... Procrustes: rmse 0.0003326004  max resid 0.0008081068 
-    ## ... Similar to previous best
-    ## Run 16 stress 0.1100645 
-    ## Run 17 stress 0.07241209 
-    ## Run 18 stress 0.07218928 
-    ## Run 19 stress 0.07399004 
-    ## Run 20 stress 0.07241308 
-    ## *** Solution reached
-
+    GP.ord.BC <- ordinate(M.f, "NMDS", "bray", k=2, trymax=100) # stress=0.07
+    GP.ord.BC
+    ## Call:
+    ## metaMDS(comm = veganifyOTU(physeq), distance = distance, k = 2,      trymax = 100) 
+    ##
+    ## global Multidimensional Scaling using monoMDS
+    ##
+    ## Data:     wisconsin(sqrt(veganifyOTU(physeq))) 
+    ## Distance: bray 
+    ##
+    ## Dimensions: 2 
+    ## Stress:     0.07152504 
+    ## Stress type 1, weak ties
+    ## Two convergent solutions found after 20 tries
+    ## Scaling: centring, PC rotation, halfchange scaling 
+    ## Species: expanded scores based on 'wisconsin(sqrt(veganifyOTU(physeq)))' 
+    ##
     color = c("Treatment")
     shape = c("Dog")
     title=c("NMDS of 16S microbiome,Bray-Curtis distance,k=2")
@@ -500,53 +487,24 @@ Are there significant differences in alpha diversity by treatment?
 **Beta diversity using NMDS with Unifrac as distance metric**
 
     GP.ord.U <- ordinate(M.f, "NMDS", "unifrac")#stress=0.08
-
-    ## Warning in UniFrac(physeq, ...): Randomly assigning root as -- OTU_179 --
-    ## in the phylogenetic tree in the data you provided.
-
-    ## Run 0 stress 0.1020741 
-    ## Run 1 stress 0.1020741 
-    ## ... New best solution
-    ## ... Procrustes: rmse 7.693494e-05  max resid 0.0001512306 
-    ## ... Similar to previous best
-    ## Run 2 stress 0.1005345 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.1036481  max resid 0.2806968 
-    ## Run 3 stress 0.09338723 
-    ## ... New best solution
-    ## ... Procrustes: rmse 0.08563969  max resid 0.2850397 
-    ## Run 4 stress 0.1121452 
-    ## Run 5 stress 0.09338727 
-    ## ... Procrustes: rmse 8.017275e-05  max resid 0.0001472236 
-    ## ... Similar to previous best
-    ## Run 6 stress 0.1521734 
-    ## Run 7 stress 0.09338724 
-    ## ... Procrustes: rmse 3.756729e-05  max resid 7.178452e-05 
-    ## ... Similar to previous best
-    ## Run 8 stress 0.1005342 
-    ## Run 9 stress 0.1343305 
-    ## Run 10 stress 0.1005345 
-    ## Run 11 stress 0.1020741 
-    ## Run 12 stress 0.09338727 
-    ## ... Procrustes: rmse 8.519511e-05  max resid 0.00015642 
-    ## ... Similar to previous best
-    ## Run 13 stress 0.09338723 
-    ## ... New best solution
-    ## ... Procrustes: rmse 1.734821e-05  max resid 3.107499e-05 
-    ## ... Similar to previous best
-    ## Run 14 stress 0.1020741 
-    ## Run 15 stress 0.1005343 
-    ## Run 16 stress 0.1121452 
-    ## Run 17 stress 0.1005343 
-    ## Run 18 stress 0.09338724 
-    ## ... Procrustes: rmse 1.616961e-05  max resid 3.354203e-05 
-    ## ... Similar to previous best
-    ## Run 19 stress 0.09338733 
-    ## ... Procrustes: rmse 5.409304e-05  max resid 0.0001203802 
-    ## ... Similar to previous best
-    ## Run 20 stress 0.112145 
-    ## *** Solution reached
-
+    ## GP.ord.U
+    ## 
+    ## Call:
+    ## metaMDS(comm = ps.dist) 
+    ## 
+    ## global Multidimensional Scaling using monoMDS
+    ## 
+    ## Data:     ps.dist 
+    ## Distance: user supplied 
+    ## 
+    ## Dimensions: 2 
+    ## Stress:     0.09882136 
+    ## Stress type 1, weak ties
+    ## Two convergent solutions found after 20 tries
+    ## Scaling: centring, PC rotation 
+    ## Species: scores missing
+    ## 
+    
     color = c("Treatment")
     shape = c("Dog")
 
@@ -572,17 +530,22 @@ Are there significant differences in alpha diversity by treatment?
 level**
 
     M.phy <- tax_glom.kv(M.f) # This function is available in the 'microbiome_custom_functions.R' script loaded at the beginning of this script
-
-    ## [1] "Removing phylogenetic tree"
-    ## [1] "There are now 58 merged taxa"
-
-    ntaxa(M.phy)
-
-    ## [1] 58
+    ##[1] "Removing phylogenetic tree"
+    ##[1] "There are now 58 merged taxa"
+    ## Warning messages:
+    ## 1: In `[<-`(`*tmp*`, i, value = <S4 object of class "phyloseq">) :
+    ##  implicit list embedding of S4 objects is deprecated
+    ## 2: In `[<-`(`*tmp*`, i, value = <S4 object of class "phyloseq">) :
+    ##  implicit list embedding of S4 objects is deprecated
+    ## 3: In `[<-`(`*tmp*`, i, value = <S4 object of class "phyloseq">) :
+    ##  implicit list embedding of S4 objects is deprecated
+    ## 4: In `[<-`(`*tmp*`, i, value = <S4 object of class "phyloseq">) :
+    ##  implicit list embedding of S4 objects is deprecated
+    ##    ntaxa(M.phy)
 
     filename <- c("heatmap_merged_taxa")
     main <- paste("Merged taxa, Bray-Curtis distance")
-    f = paste0(outDir,filename,".pdf")
+    f = paste0(outDir,"/",filename,".pdf")
     # Color specification for column annotations above heatmap:
     D.cols = c("B"="#CC79A7","G"="#56B4E9","K"="#F0E442")
     colours = list(Dog=D.cols)
@@ -593,25 +556,10 @@ level**
     clust.res<-hclust(diss)
     sample.order = clust.res$order
     # Heatmap is output to file (the heatmap.k function can be found in the 'microbiome_custom_functions.R' script)
-    hm = heatmap.k(physeq= M.phy, annot.cols = c(1,2), main = main,filename = f,colours=colours,Colv = sample.order,labrow = TRUE, cexCol = 2)  
-
-    ## [1] "including all samples"
-    ## [1] "including all otus"
-
-![](README_files/figure-markdown_strict/unnamed-chunk-17-1.png)
-
+    hm = heatmap.k(physeq= M.phy, annot.cols = c(1,2), main = main,filename = f,colours=colours,Colv = sample.order,labrow = TRUE)  
     print(hm)
 
-    ## $Rowv
-    ## 'dendrogram' with 2 branches and 58 members total, at height 31.61713 
-    ## 
-    ## $rowInd
-    ##  [1] 16 44 30 50 12 53 39 42 28 33 35 18 21 19 31  7 20 38 47  3 36  9 43
-    ## [24] 27  6 14 55  4 29 54 49 48 56  5  8  2 22 17 26 41 37 24 34 57 13 58
-    ## [47] 23 11  1 32 46 51 15 45 52 40 25 10
-    ## 
-    ## $colInd
-    ##  [1] 13  9  2  6  5 10 15  3  7 11  1 14 12  4  8
+![](README_files/figure-markdown_strict/unnamed-chunk-17-1.png)
 
 **Barplots by dog**
 -------------------
@@ -635,7 +583,7 @@ standardized:
     Mraw.f = filter_taxa(phy,function(x) sum(x > 10) > (0.02*length(x)) | sum(x) > 0.001*total, TRUE)
     ntaxa(Mraw.f)
 
-    ## [1] 138
+    ## [1] 135
 
     MGS=make_metagenomeSeq(Mraw.f)
 
@@ -643,20 +591,19 @@ standardized:
 
     MGS
 
-    ## MRexperiment (storageMode: environment)
-    ## assayData: 138 features, 15 samples 
-    ##   element names: counts 
-    ## protocolData: none
-    ## phenoData
-    ##   sampleNames: Dog10 Dog15 ... Dog9 (15 total)
-    ##   varLabels: Dog Treatment
-    ##   varMetadata: labelDescription
-    ## featureData
-    ##   featureNames: OTU_72 OTU_77 ... OTU_47 (138 total)
-    ##   fvarLabels: OTUname
-    ##   fvarMetadata: labelDescription
-    ## experimentData: use 'experimentData(object)'
-    ## Annotation:
+    ##MRexperiment (storageMode: environment)
+    ##assayData: 135 features, 15 samples 
+    ##  element names: counts 
+    ##protocolData: none
+    ##phenoData
+    ##  sampleNames: Dog10 Dog15 ... Dog9 (15 total)
+    ##  varLabels: Dog Treatment
+    ##  varMetadata: labelDescription
+    ##featureData
+    ##  featureNames: OTU_30 OTU_41 ... OTU_66 (135 total)
+    ##  fvarLabels: OTUname
+    ##  fvarMetadata: labelDescription
+    ##experimentData: use 'experimentData(object)'
 
 **Use Random forests analysis to detect taxa that are good predictors of
 Dog**
@@ -669,88 +616,87 @@ Example used: Dog G vs. Dog B (all treatment points)
 
     ## [1] 10
 
-    library(randomForest)
-    library(dplyr)
-    RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3)
+    RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3) #for details on RF.k() see microbiome_custom_functions.R file
+    
+    #Note that Nfeatures.validation: 'x' number of top taxa to test (e.g. how good are the top 3 most important taxa at classifying)
+    
+    # [1] "0 samples did not have response variable data, removing these..."
+    # [1] "Data set size:  10 samples with 5 and 5 samples per class"
+    # [1] "Cross-validated error rates associated with stepwise reduction of features:"
+    # 135  68  34  17   8   4   2   1 
+    # 0.0 0.0 0.0 0.0 0.0 0.0 0.2 0.0 
+    # [1] "*****************************"
+    # [1] "THE TOP 20 MOST IMPORTANT FEATURES WERE:"
+    #         predictors         B         G MeanDecreaseAccuracy MeanDecreaseGini
+    # OTU_121    OTU_121  9.671867  9.681629             9.993612       0.08080000
+    # OTU_51      OTU_51  8.804326  8.794635             9.104466       0.08008667
+    # OTU_8        OTU_8 10.147888 10.256865            10.526653       0.07962000
+    # OTU_72      OTU_72  9.560636  9.639463            10.031998       0.07860000
+    # OTU_104    OTU_104  9.232706  9.125792             9.443961       0.07852000
+    # OTU_58      OTU_58  9.391857  9.411628             9.868075       0.07734000
+    # OTU_11      OTU_11  8.359543  8.290286             8.680334       0.07688000
+    # OTU_119    OTU_119  9.141466  9.134742             9.416359       0.07652000
+    # OTU_115    OTU_115  8.950253  8.937649             9.235798       0.07576000
+    # OTU_53      OTU_53  8.925435  8.801074             9.192012       0.07570667
+    # OTU_74      OTU_74  9.342631  9.406728             9.785011       0.07478000
+    # OTU_59      OTU_59  8.384654  8.370093             8.661476       0.07470000
+    # OTU_73      OTU_73  8.405341  8.385556             8.701166       0.07414000
+    # OTU_140    OTU_140  8.380246  8.371369             8.789388       0.07386000
+    # OTU_96      OTU_96  7.817527  7.903793             8.080081       0.07374000
+    # OTU_78      OTU_78  7.751269  7.708754             8.008854       0.07370000
+    # OTU_150    OTU_150  8.586375  8.567680             8.865167       0.07352667
+    # OTU_24      OTU_24  7.428018  7.468994             7.720773       0.07346000
+    # OTU_10      OTU_10  9.535855  9.464636             9.827861       0.07342000
+    # OTU_29      OTU_29  8.973883  8.878966             9.301188       0.07286000
+    #                         tax
+    # OTU_121             P.copri
+    # OTU_51        Clostridiales
+    # OTU_8             P.copri.1
+    # OTU_72        Adlercreutzia
+    # OTU_104         Odoribacter
+    # OTU_58   Anaerobiospirillum
+    # OTU_11   Enterobacteriaceae
+    # OTU_119          Sutterella
+    # OTU_115        Enterococcus
+    # OTU_53       Clostridiaceae
+    # OTU_74   [Mogibacteriaceae]
+    # OTU_59       [Ruminococcus]
+    # OTU_73  Erysipelotrichaceae
+    # OTU_140       Fusobacterium
+    # OTU_96         Oscillospira
+    # OTU_78          Bacteroides
+    # OTU_150     Lachnospiraceae
+    # OTU_24    Lachnospiraceae.1
+    # OTU_10           B.producta
+    # OTU_29         Turicibacter
+    # [1] "*****************************"
+    # [1] "Training AUC=1"
+    # [1] "Training PPV=1"
+    # [1] "Training NPV=1"
+    # [1] "*****************************"
+    # [1] "Training set classification summary if using the top 3 features only"
+    # [1] "Feature(s) selected: OTU_121" "Feature(s) selected: OTU_51" 
+    # [3] "Feature(s) selected: OTU_8"  
+    #                 B         G MeanDecreaseAccuracy MeanDecreaseGini
+    # OTU_8   0.1447083 0.1438417            0.1290467          1.52652
+    # OTU_121 0.1430083 0.1389750            0.1261224          1.50398
+    # OTU_51  0.1139500 0.1111500            0.1011867          1.47938
+    # 
+    # Call:
+    #  randomForest(formula = response ~ ., data = rf.data[, c(goodPredictors,      "response")], importance = T, proximity = T, ntree = ntree,      na.action = na.omit) 
+    #                Type of random forest: classification
+    #                      Number of trees: 10000
+    # No. of variables tried at each split: 1
+    # 
+    #         OOB estimate of  error rate: 0%
+    # Confusion matrix:
+    #   B G class.error
+    # B 5 0           0
+    # G 0 5           0
+    # > cat("Synch1501582059855921000\n");
 
-    ## [1] "0 samples did not have response variable data, removing these..."
-    ## [1] "Data set size:  10 samples with 5 and 5 samples per class"
-    ## [1] "Cross-validated error rates associated with stepwise reduction of features:"
-    ## 138  69  34  17   9   4   2   1 
-    ## 0.0 0.0 0.0 0.0 0.0 0.0 0.2 0.2
 
-    ## [1] "*****************************"
-    ## [1] "THE TOP 20 MOST IMPORTANT FEATURES WERE:"
-    ##         predictors        B        G MeanDecreaseAccuracy MeanDecreaseGini
-    ## OTU_141    OTU_141 8.853276 8.938303             9.195140       0.08360000
-    ## OTU_125    OTU_125 9.852233 9.753600            10.139613       0.08078000
-    ## OTU_13      OTU_13 8.654537 8.670092             8.968530       0.07870000
-    ## OTU_85      OTU_85 9.234499 9.270183             9.532235       0.07676000
-    ## OTU_26      OTU_26 7.610852 7.415002             7.867611       0.07600667
-    ## OTU_28      OTU_28 9.269239 9.179335             9.553787       0.07532000
-    ## OTU_45      OTU_45 9.163334 9.093742             9.543887       0.07484000
-    ## OTU_82      OTU_82 9.697815 9.603315             9.918552       0.07482000
-    ## OTU_44      OTU_44 8.965029 8.997229             9.289003       0.07447000
-    ## OTU_92      OTU_92 8.255487 8.218606             8.530282       0.07438000
-    ## OTU_9        OTU_9 9.519245 9.459887             9.890981       0.07430000
-    ## OTU_11      OTU_11 8.910690 8.823479             9.208113       0.07396000
-    ## OTU_78      OTU_78 9.283935 9.161688             9.611126       0.07384000
-    ## OTU_56      OTU_56 9.681690 9.679827            10.023366       0.07378000
-    ## OTU_101    OTU_101 8.796644 8.698407             9.041628       0.07350000
-    ## OTU_19      OTU_19 8.805800 8.729367             9.031053       0.07338667
-    ## OTU_24      OTU_24 8.008401 7.988265             8.385150       0.07324000
-    ## OTU_34      OTU_34 8.668624 8.571000             8.930318       0.07220000
-    ## OTU_47      OTU_47 7.273510 7.348116             7.651533       0.07202667
-    ## OTU_110    OTU_110 7.982483 7.935700             8.204203       0.07160000
-    ##                          tax
-    ## OTU_141        Fusobacterium
-    ## OTU_125         Enterococcus
-    ## OTU_13         F.prausnitzii
-    ## OTU_85   Erysipelotrichaceae
-    ## OTU_26       Lachnospiraceae
-    ## OTU_28          Turicibacter
-    ## OTU_45                 Dorea
-    ## OTU_82    [Mogibacteriaceae]
-    ## OTU_44               Dorea.1
-    ## OTU_92          Oscillospira
-    ## OTU_9                P.copri
-    ## OTU_11            B.producta
-    ## OTU_78         Clostridiales
-    ## OTU_56         Bacteroidales
-    ## OTU_101       Oscillospira.1
-    ## OTU_19     Lachnospiraceae.1
-    ## OTU_24                 S24-7
-    ## OTU_34  [Paraprevotellaceae]
-    ## OTU_47     Lachnospiraceae.2
-    ## OTU_110      Ruminococcaceae
-    ## [1] "*****************************"
-
-    ## [1] "Training AUC=1"
-    ## [1] "Training PPV=1"
-    ## [1] "Training NPV=1"
-
-    ## [1] "*****************************"
-    ## [1] "Training set classification summary if using the top 3 features only"
-    ## [1] "Feature(s) selected: OTU_141" "Feature(s) selected: OTU_125"
-    ## [3] "Feature(s) selected: OTU_13" 
-    ##                 B        G MeanDecreaseAccuracy MeanDecreaseGini
-    ## OTU_141 0.1063500 0.108525           0.09641381          1.55448
-    ## OTU_13  0.1021667 0.101050           0.09129048          1.48478
-    ## OTU_125 0.1358417 0.131375           0.11959905          1.47374
-    ## 
-    ## Call:
-    ##  randomForest(formula = response ~ ., data = rf.data[, c(goodPredictors,      "response")], importance = T, proximity = T, ntree = ntree,      na.action = na.omit) 
-    ##                Type of random forest: classification
-    ##                      Number of trees: 10000
-    ## No. of variables tried at each split: 1
-    ## 
-    ##         OOB estimate of  error rate: 0%
-    ## Confusion matrix:
-    ##   B G class.error
-    ## B 5 0           0
-    ## G 0 5           0
-
-The class error rates are 0% (even one OTU enough to discriminate
+The class error rates are 0% (even one/two OTUs enough to discriminate
 between Dog G and B?)
 
 What if we used merged OTUs?
@@ -761,87 +707,83 @@ What if we used merged OTUs?
     ## [1] "There are now 58 merged taxa"
 
     RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs")
-
-    ## [1] "0 samples did not have response variable data, removing these..."
-    ## [1] "Data set size:  10 samples with 5 and 5 samples per class"
-    ## [1] "Cross-validated error rates associated with stepwise reduction of features:"
-    ##  58  29  14   7   4   1 
-    ## 0.0 0.0 0.0 0.0 0.0 0.1
-
-    ## [1] "*****************************"
-    ## [1] "THE TOP 20 MOST IMPORTANT FEATURES WERE:"
-    ##         predictors        B        G MeanDecreaseAccuracy MeanDecreaseGini
-    ## OTU_73      OTU_73 13.92293 13.90158             14.48344        0.1737167
-    ## OTU_10      OTU_10 12.49247 12.47807             12.94437        0.1707314
-    ## OTU_13      OTU_13 11.55367 11.68032             11.98464        0.1706067
-    ## OTU_54      OTU_54 12.84943 12.81846             13.41733        0.1681267
-    ## OTU_125    OTU_125 13.87000 13.90372             14.39531        0.1656083
-    ## OTU_56      OTU_56 13.29844 13.39568             13.86765        0.1643100
-    ## OTU_71      OTU_71 13.34526 13.26860             13.77618        0.1642600
-    ## OTU_34      OTU_34 13.90986 13.99704             14.43902        0.1635067
-    ## OTU_95      OTU_95 14.07960 13.96190             14.56578        0.1631314
-    ## OTU_59      OTU_59 12.42655 12.48879             12.91485        0.1584114
-    ## OTU_24      OTU_24 12.74488 12.67917             13.22373        0.1579200
-    ## OTU_111    OTU_111 12.67367 12.64432             13.03962        0.1540067
-    ## OTU_28      OTU_28 13.59523 13.63420             14.13919        0.1526267
-    ## OTU_35      OTU_35 12.56198 12.62705             13.19065        0.1508400
-    ## OTU_11      OTU_11 12.86726 12.84785             13.43512        0.1495933
-    ## OTU_9        OTU_9 13.33599 13.39256             13.93159        0.1492267
-    ## OTU_82      OTU_82 13.33169 13.25126             13.79476        0.1484067
-    ## OTU_27      OTU_27 13.33507 13.27208             13.76675        0.1484000
-    ## OTU_18      OTU_18 12.64827 12.65739             13.12016        0.1445700
-    ## OTU_68      OTU_68 13.48077 13.49082             13.97638        0.1441900
-    ##                           tax
-    ## OTU_73           Oscillospira
-    ## OTU_10     Enterobacteriaceae
-    ## OTU_13          F.prausnitzii
-    ## OTU_54    Succinivibrionaceae
-    ## OTU_125          Enterococcus
-    ## OTU_56          Bacteroidales
-    ## OTU_71  Peptostreptococcaceae
-    ## OTU_34   [Paraprevotellaceae]
-    ## OTU_95                  Dorea
-    ## OTU_59         [Ruminococcus]
-    ## OTU_24                  S24-7
-    ## OTU_111           Odoribacter
-    ## OTU_28           Turicibacter
-    ## OTU_35            Allobaculum
-    ## OTU_11             B.producta
-    ## OTU_9                 P.copri
-    ## OTU_82     [Mogibacteriaceae]
-    ## OTU_27           Ruminococcus
-    ## OTU_18               R.gnavus
-    ## OTU_68          Adlercreutzia
-    ## [1] "*****************************"
-
-    ## [1] "Training AUC=1"
-    ## [1] "Training PPV=1"
-    ## [1] "Training NPV=1"
-
-    ## [1] "*****************************"
-    ## [1] "Training set classification summary if using the top 3 features only"
-    ## [1] "Feature(s) selected: OTU_73" "Feature(s) selected: OTU_10"
-    ## [3] "Feature(s) selected: OTU_13"
-    ##                 B          G MeanDecreaseAccuracy MeanDecreaseGini
-    ## OTU_73 0.14227500 0.14479167           0.12855762          1.55290
-    ## OTU_10 0.11312500 0.10742500           0.09887333          1.50766
-    ## OTU_13 0.09850833 0.09779167           0.08807857          1.45636
-    ## 
-    ## Call:
-    ##  randomForest(formula = response ~ ., data = rf.data[, c(goodPredictors,      "response")], importance = T, proximity = T, ntree = ntree,      na.action = na.omit) 
-    ##                Type of random forest: classification
-    ##                      Number of trees: 10000
-    ## No. of variables tried at each split: 1
-    ## 
-    ##         OOB estimate of  error rate: 0%
-    ## Confusion matrix:
-    ##   B G class.error
-    ## B 5 0           0
-    ## G 0 5           0
-
+    #[1] "0 samples did not have response variable data, removing these..."
+    #[1] "Data set size:  10 samples with 5 and 5 samples per class"
+    #[1] "Cross-validated error rates associated with stepwise reduction of features:"
+    #58  29  14   7   4   1 
+    #0.0 0.0 0.0 0.0 0.0 0.1 
+    #[1] "*****************************"
+    #[1] "THE TOP 20 MOST IMPORTANT FEATURES WERE:"
+    #predictors        B        G MeanDecreaseAccuracy MeanDecreaseGini
+    #OTU_59      OTU_59 12.84573 12.75514             13.22767        0.1701578
+    #OTU_27      OTU_27 14.14560 14.15688             14.66689        0.1664900
+    #OTU_104    OTU_104 13.79309 13.76287             14.34825        0.1652714
+    #OTU_68      OTU_68 12.54870 12.48715             13.03041        0.1639057
+    #OTU_72      OTU_72 13.67522 13.74857             14.21517        0.1631848
+    #OTU_76      OTU_76 13.48093 13.57423             14.07012        0.1623467
+    #OTU_29      OTU_29 13.77678 13.69971             14.25054        0.1618883
+    #OTU_115    OTU_115 13.78611 13.66527             14.26590        0.1615750
+    #OTU_98      OTU_98 13.23068 13.23404             13.60197        0.1611457
+    #OTU_57      OTU_57 12.79080 12.78306             13.28220        0.1607600
+    #OTU_26      OTU_26 12.70062 12.54606             13.09699        0.1593200
+    #OTU_8        OTU_8 13.81179 13.67807             14.29226        0.1565095
+    #OTU_11      OTU_11 12.19598 12.23061             12.70349        0.1563300
+    #OTU_55      OTU_55 13.95863 13.71404             14.38892        0.1548617
+    #OTU_12      OTU_12 11.50679 11.36390             11.94686        0.1536400
+    #OTU_35      OTU_35 12.44178 12.45397             13.04827        0.1484333
+    #OTU_74      OTU_74 13.36003 13.41300             13.80032        0.1483867
+    #OTU_19      OTU_19 13.36975 13.20095             13.78641        0.1470000
+    #OTU_10      OTU_10 12.36814 12.38032             12.83683        0.1421733
+    #OTU_61      OTU_61 12.03922 12.09042             12.51234        0.1395000
+    #tax
+    #OTU_59         [Ruminococcus]
+    #OTU_27           Ruminococcus
+    #OTU_104           Odoribacter
+    #OTU_68     Anaerobiospirillum
+    #OTU_72          Adlercreutzia
+    #OTU_76           Oscillospira
+    #OTU_29           Turicibacter
+    #OTU_115          Enterococcus
+    #OTU_98                  Dorea
+    #OTU_57    Succinivibrionaceae
+    #OTU_26                  S24-7
+    #OTU_8                 P.copri
+    #OTU_11     Enterobacteriaceae
+    #OTU_55          Bacteroidales
+    #OTU_12          F.prausnitzii
+    #OTU_35            Allobaculum
+    #OTU_74     [Mogibacteriaceae]
+    #OTU_19               R.gnavus
+    #OTU_10             B.producta
+    #OTU_61  Peptostreptococcaceae
+    #[1] "*****************************"
+    #[1] "Training AUC=1"
+    #[1] "Training PPV=1"
+    #[1] "Training NPV=1"
+    #[1] "*****************************"
+    #[1] "Training set classification summary if using the top 3 features only"
+    #[1] "Feature(s) selected: OTU_59"  "Feature(s) selected: OTU_27" 
+    #[3] "Feature(s) selected: OTU_104"
+    #B         G MeanDecreaseAccuracy MeanDecreaseGini
+    #OTU_104 0.1392500 0.1415667            0.1262033          1.52932
+    #OTU_27  0.1363083 0.1369833            0.1223476          1.49262
+    #OTU_59  0.1169167 0.1174750            0.1051862          1.48760
+    #
+    #Call:
+    #		randomForest(formula = response ~ ., data = rf.data[, c(goodPredictors,      "response")], importance = T, proximity = T, ntree = ntree,      na.action = na.omit) 
+    #Type of random forest: classification
+    #Number of trees: 10000
+    #No. of variables tried at each split: 1
+    #
+    #OOB estimate of  error rate: 0%
+    #		Confusion matrix:
+    #		B G class.error
+    #       B 5 0           0
+    #       G 0 5           0
+    
 **Differential abundance testing using MetagenomeSeq package**
 
-Lets again compare dog G vs. dog B (merged taxa)
+Lets again compare dog G vs. dog B (merged taxa), this time using differential abundance testing
 
     colours = list(Dog=D.cols)
     a = super.fitZig.kv(physeq = merged.phy,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_taxa_merged"),
@@ -871,164 +813,138 @@ Lets again compare dog G vs. dog B (merged taxa)
 
     print(a)
 
-    ##         percent_positive_group0 percent_positive_group1
-    ## OTU_10                      100                     100
-    ## OTU_106                      80                      20
-    ## OTU_18                      100                     100
-    ## OTU_74                      100                      80
-    ## OTU_28                      100                     100
-    ## OTU_125                     100                      40
-    ## OTU_71                      100                     100
-    ## OTU_95                      100                     100
-    ## OTU_11                      100                     100
-    ## OTU_59                      100                     100
-    ## OTU_70                      100                     100
-    ## OTU_13                      100                     100
-    ## OTU_42                       80                     100
-    ## OTU_73                      100                     100
-    ## OTU_27                      100                     100
-    ## OTU_82                       60                     100
-    ## OTU_66                       60                     100
-    ## OTU_38                      100                     100
-    ## OTU_9                       100                     100
-    ## OTU_24                      100                     100
-    ## OTU_54                       60                     100
-    ## OTU_68                        0                     100
-    ## OTU_64                       40                     100
-    ## OTU_56                       20                     100
-    ## OTU_34                       40                     100
-    ##         +samples in group 0 +samples in group 1 mean_positive_group0
-    ## OTU_10                    5                   5                 3645
-    ## OTU_106                   4                   1                   32
-    ## OTU_18                    5                   5                 1142
-    ## OTU_74                    5                   4                   68
-    ## OTU_28                    5                   5                 1147
-    ## OTU_125                   5                   2                   10
-    ## OTU_71                    5                   5                  167
-    ## OTU_95                    5                   5                 1570
-    ## OTU_11                    5                   5                 4034
-    ## OTU_59                    5                   5                  105
-    ## OTU_70                    5                   5                  119
-    ## OTU_13                    5                   5                 1822
-    ## OTU_42                    4                   5                   37
-    ## OTU_73                    5                   5                   16
-    ## OTU_27                    5                   5                  242
-    ## OTU_82                    3                   5                    7
-    ## OTU_66                    3                   5                    4
-    ## OTU_38                    5                   5                   85
-    ## OTU_9                     5                   5                 1524
-    ## OTU_24                    5                   5                   20
-    ## OTU_54                    3                   5                    2
-    ## OTU_68                    0                   5                  NaN
-    ## OTU_64                    2                   5                    3
-    ## OTU_56                    1                   5                    4
-    ## OTU_34                    2                   5                   10
-    ##         mean_positive_group1 oddsRatio      lower       upper     fisherP
-    ## OTU_10                    70    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_106                    1   10.9072 0.45473998 968.7617574 0.206349206
-    ## OTU_18                    85    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_74                     6       Inf 0.02564066         Inf 1.000000000
-    ## OTU_28                   241    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_125                    1       Inf 0.49337123         Inf 0.166666667
-    ## OTU_71                    28    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_95                   409    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_11                  1279    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_59                    32    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_70                    38    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_13                   588    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_42                   201    0.0000 0.00000000  39.0005500 1.000000000
-    ## OTU_73                   121    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_27                  1452    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_82                    72    0.0000 0.00000000   5.1183766 0.444444444
-    ## OTU_66                    88    0.0000 0.00000000   5.1183766 0.444444444
-    ## OTU_38                   598    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_9                  15540    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_24                   455    0.0000 0.00000000         Inf 1.000000000
-    ## OTU_54                   104    0.0000 0.00000000   5.1183766 0.444444444
-    ## OTU_68                    52    0.0000 0.00000000   0.4353226 0.007936508
-    ## OTU_64                   231    0.0000 0.00000000   2.0268713 0.166666667
-    ## OTU_56                   264    0.0000 0.00000000   0.9757790 0.047619048
-    ## OTU_34                   781    0.0000 0.00000000   2.0268713 0.166666667
-    ##         fisherAdjP     coeff      pvalues  adjPvalues  Kingdom
-    ## OTU_10   1.0000000 -5.598472 2.453239e-03 0.008369873 Bacteria
-    ## OTU_106  1.0000000 -3.848887 1.330121e-03 0.004821688 Bacteria
-    ## OTU_18   1.0000000 -3.737111 2.428632e-04 0.001565119 Bacteria
-    ## OTU_74   1.0000000 -3.606916 4.218682e-03 0.012234178 Bacteria
-    ## OTU_28   1.0000000 -2.450339 5.757468e-04 0.002782776 Bacteria
-    ## OTU_125  1.0000000 -2.381645 5.397998e-03 0.014908755 Bacteria
-    ## OTU_71   1.0000000 -2.271126 5.448032e-04 0.002782776 Bacteria
-    ## OTU_95   1.0000000 -2.081834 1.600566e-04 0.001565119 Bacteria
-    ## OTU_11   1.0000000 -1.710174 1.284840e-03 0.004821688 Bacteria
-    ## OTU_59   1.0000000 -1.692746 9.267702e-04 0.004134821 Bacteria
-    ## OTU_70   1.0000000 -1.607536 9.350141e-03 0.023578617 Bacteria
-    ## OTU_13   1.0000000 -1.606044 3.209666e-03 0.009797928 Bacteria
-    ## OTU_42   1.0000000  1.861977 1.883088e-02 0.042007356 Bacteria
-    ## OTU_73   1.0000000  3.104876 4.759308e-04 0.002760399 Bacteria
-    ## OTU_27   1.0000000  3.178896 3.023464e-03 0.009742272 Bacteria
-    ## OTU_82   1.0000000  3.580376 2.014315e-04 0.001565119 Bacteria
-    ## OTU_66   1.0000000  3.789765 1.830101e-02 0.042007356 Bacteria
-    ## OTU_38   1.0000000  4.005254 6.018323e-03 0.015866487 Bacteria
-    ## OTU_9    1.0000000  4.134342 1.127444e-03 0.004670841 Bacteria
-    ## OTU_24   1.0000000  4.981333 2.362143e-04 0.001565119 Bacteria
-    ## OTU_54   1.0000000  5.135264 1.381184e-04 0.001565119 Bacteria
-    ## OTU_68   0.4603175  5.547099 2.016248e-04 0.001565119 Bacteria
-    ## OTU_64   1.0000000  6.090299 1.059880e-04 0.001565119 Bacteria
-    ## OTU_56   0.5523810  6.575620 8.565233e-05 0.001565119 Bacteria
-    ## OTU_34   1.0000000  6.644656 1.767143e-04 0.001565119 Bacteria
-    ##                 Phylum               Class              Order
-    ## OTU_10  Proteobacteria Gammaproteobacteria  Enterobacteriales
-    ## OTU_106     Firmicutes          Clostridia      Clostridiales
-    ## OTU_18      Firmicutes          Clostridia      Clostridiales
-    ## OTU_74      Firmicutes     Erysipelotrichi Erysipelotrichales
-    ## OTU_28      Firmicutes             Bacilli   Turicibacterales
-    ## OTU_125     Firmicutes             Bacilli    Lactobacillales
-    ## OTU_71      Firmicutes          Clostridia      Clostridiales
-    ## OTU_95      Firmicutes          Clostridia      Clostridiales
-    ## OTU_11      Firmicutes          Clostridia      Clostridiales
-    ## OTU_59      Firmicutes          Clostridia      Clostridiales
-    ## OTU_70      Firmicutes     Erysipelotrichi Erysipelotrichales
-    ## OTU_13      Firmicutes          Clostridia      Clostridiales
-    ## OTU_42   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_73      Firmicutes          Clostridia      Clostridiales
-    ## OTU_27      Firmicutes          Clostridia      Clostridiales
-    ## OTU_82      Firmicutes          Clostridia      Clostridiales
-    ## OTU_66   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_38   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_9    Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_24   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_54  Proteobacteria Gammaproteobacteria      Aeromonadales
-    ## OTU_68  Actinobacteria      Coriobacteriia   Coriobacteriales
-    ## OTU_64  Proteobacteria Gammaproteobacteria      Aeromonadales
-    ## OTU_56   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_34   Bacteroidetes         Bacteroidia      Bacteroidales
-    ##                        Family              Genus     Species
-    ## OTU_10     Enterobacteriaceae               <NA>        <NA>
-    ## OTU_106       Lachnospiraceae       Epulopiscium        <NA>
-    ## OTU_18        Lachnospiraceae     [Ruminococcus]      gnavus
-    ## OTU_74    Erysipelotrichaceae      [Eubacterium]    dolichum
-    ## OTU_28      Turicibacteraceae       Turicibacter        <NA>
-    ## OTU_125       Enterococcaceae       Enterococcus        <NA>
-    ## OTU_71  Peptostreptococcaceae               <NA>        <NA>
-    ## OTU_95        Lachnospiraceae              Dorea        <NA>
-    ## OTU_11        Lachnospiraceae            Blautia    producta
-    ## OTU_59        Lachnospiraceae     [Ruminococcus]        <NA>
-    ## OTU_70    Erysipelotrichaceae               <NA>        <NA>
-    ## OTU_13        Ruminococcaceae   Faecalibacterium prausnitzii
-    ## OTU_42         Bacteroidaceae        Bacteroides coprophilus
-    ## OTU_73        Ruminococcaceae       Oscillospira        <NA>
-    ## OTU_27        Ruminococcaceae       Ruminococcus        <NA>
-    ## OTU_82     [Mogibacteriaceae]               <NA>        <NA>
-    ## OTU_66         Bacteroidaceae        Bacteroides   uniformis
-    ## OTU_38     Porphyromonadaceae    Parabacteroides        <NA>
-    ## OTU_9          Prevotellaceae         Prevotella       copri
-    ## OTU_24                  S24-7               <NA>        <NA>
-    ## OTU_54    Succinivibrionaceae               <NA>        <NA>
-    ## OTU_68      Coriobacteriaceae      Adlercreutzia        <NA>
-    ## OTU_64    Succinivibrionaceae Anaerobiospirillum        <NA>
-    ## OTU_56                   <NA>               <NA>        <NA>
-    ## OTU_34   [Paraprevotellaceae]               <NA>        <NA>
-
-Now compare dog G vs. dog B (individual taxa)
+    #         percent_positive_group0 percent_positive_group1 +samples in group 0
+    # OTU_11                      100                     100                   5
+    # OTU_111                      80                      20                   4
+    # OTU_19                      100                     100                   5
+    # OTU_77                      100                      80                   5
+    # OTU_29                      100                     100                   5
+    # OTU_115                     100                      40                   5
+    # OTU_61                      100                     100                   5
+    # OTU_98                      100                     100                   5
+    # OTU_10                      100                     100                   5
+    # OTU_59                      100                     100                   5
+    # OTU_12                      100                     100                   5
+    # OTU_73                      100                     100                   5
+    # OTU_44                       80                     100                   4
+    # OTU_76                      100                     100                   5
+    # OTU_27                      100                     100                   5
+    # OTU_74                       60                     100                   3
+    # OTU_69                       60                     100                   3
+    # OTU_39                      100                     100                   5
+    # OTU_8                       100                     100                   5
+    # OTU_26                      100                     100                   5
+    # OTU_57                       60                     100                   3
+    # OTU_72                        0                     100                   0
+    # OTU_68                       40                     100                   2
+    # OTU_55                       20                     100                   1
+    # OTU_36                       40                     100                   2
+    #         +samples in group 1 mean_positive_group0 mean_positive_group1 oddsRatio
+    # OTU_11                    5                 3645                   70    0.0000
+    # OTU_111                   1                   32                    1   10.9072
+    # OTU_19                    5                 1142                   85    0.0000
+    # OTU_77                    4                   66                    6       Inf
+    # OTU_29                    5                 1147                  241    0.0000
+    # OTU_115                   2                   10                    1       Inf
+    # OTU_61                    5                  160                   27    0.0000
+    # OTU_98                    5                 1570                  409    0.0000
+    # OTU_10                    5                 4032                 1277    0.0000
+    # OTU_59                    5                  105                   32    0.0000
+    # OTU_12                    5                 1821                  588    0.0000
+    # OTU_73                    5                  119                   38    0.0000
+    # OTU_44                    5                   37                  201    0.0000
+    # OTU_76                    5                   16                  121    0.0000
+    # OTU_27                    5                  242                 1453    0.0000
+    # OTU_74                    5                    7                   73    0.0000
+    # OTU_69                    5                    4                   88    0.0000
+    # OTU_39                    5                   85                  598    0.0000
+    # OTU_8                     5                 1524                15540    0.0000
+    # OTU_26                    5                   20                  456    0.0000
+    # OTU_57                    5                    2                  104    0.0000
+    # OTU_72                    5                  NaN                   52    0.0000
+    # OTU_68                    5                    3                  231    0.0000
+    # OTU_55                    5                    4                  264    0.0000
+    # OTU_36                    5                   10                  782    0.0000
+    #              lower       upper     fisherP fisherAdjP     coeff      pvalues
+    # OTU_11  0.00000000         Inf 1.000000000  1.0000000 -5.584733 2.632486e-03
+    # OTU_111 0.45473998 968.7617574 0.206349206  1.0000000 -3.821533 1.375479e-03
+    # OTU_19  0.00000000         Inf 1.000000000  1.0000000 -3.737026 2.629153e-04
+    # OTU_77  0.02564066         Inf 1.000000000  1.0000000 -3.579532 4.548917e-03
+    # OTU_29  0.00000000         Inf 1.000000000  1.0000000 -2.453196 6.035145e-04
+    # OTU_115 0.49337123         Inf 0.166666667  1.0000000 -2.379397 5.497207e-03
+    # OTU_61  0.00000000         Inf 1.000000000  1.0000000 -2.225829 6.076356e-04
+    # OTU_98  0.00000000         Inf 1.000000000  1.0000000 -2.090437 1.479472e-04
+    # OTU_10  0.00000000         Inf 1.000000000  1.0000000 -1.715693 1.274277e-03
+    # OTU_59  0.00000000         Inf 1.000000000  1.0000000 -1.692829 9.068161e-04
+    # OTU_12  0.00000000         Inf 1.000000000  1.0000000 -1.610710 3.120434e-03
+    # OTU_73  0.00000000         Inf 1.000000000  1.0000000 -1.608000 9.476365e-03
+    # OTU_44  0.00000000  39.0005500 1.000000000  1.0000000  1.851675 1.996187e-02
+    # OTU_76  0.00000000         Inf 1.000000000  1.0000000  3.097858 5.065905e-04
+    # OTU_27  0.00000000         Inf 1.000000000  1.0000000  3.166680 3.369510e-03
+    # OTU_74  0.00000000   5.1183766 0.444444444  1.0000000  3.576528 2.139827e-04
+    # OTU_69  0.00000000   5.1183766 0.444444444  1.0000000  3.815334 1.891429e-02
+    # OTU_39  0.00000000         Inf 1.000000000  1.0000000  3.980148 6.443652e-03
+    # OTU_8   0.00000000         Inf 1.000000000  1.0000000  4.115082 1.219577e-03
+    # OTU_26  0.00000000         Inf 1.000000000  1.0000000  4.973902 2.611733e-04
+    # OTU_57  0.00000000   5.1183766 0.444444444  1.0000000  5.136267 1.493929e-04
+    # OTU_72  0.00000000   0.4353226 0.007936508  0.4603175  5.546255 2.124125e-04
+    # OTU_68  0.00000000   2.0268713 0.166666667  1.0000000  6.085491 1.169281e-04
+    # OTU_55  0.00000000   0.9757790 0.047619048  0.5523810  6.572744 9.392677e-05
+    # OTU_36  0.00000000   2.0268713 0.166666667  1.0000000  6.638985 1.950259e-04
+    #          adjPvalues  Kingdom         Phylum               Class
+    # OTU_11  0.008981422 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_111 0.004986112 Bacteria     Firmicutes          Clostridia
+    # OTU_19  0.001694343 Bacteria     Firmicutes          Clostridia
+    # OTU_77  0.013191859 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_29  0.002936905 Bacteria     Firmicutes             Bacilli
+    # OTU_115 0.015182763 Bacteria     Firmicutes             Bacilli
+    # OTU_61  0.002936905 Bacteria     Firmicutes          Clostridia
+    # OTU_98  0.001694343 Bacteria     Firmicutes          Clostridia
+    # OTU_10  0.004927205 Bacteria     Firmicutes          Clostridia
+    # OTU_59  0.004045795 Bacteria     Firmicutes          Clostridia
+    # OTU_12  0.010054733 Bacteria     Firmicutes          Clostridia
+    # OTU_73  0.023896920 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_44  0.044530317 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_76  0.002936905 Bacteria     Firmicutes          Clostridia
+    # OTU_27  0.010285872 Bacteria     Firmicutes          Clostridia
+    # OTU_74  0.001694343 Bacteria     Firmicutes          Clostridia
+    # OTU_69  0.043881157 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_39  0.016987809 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_8   0.004927205 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_26  0.001694343 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_57  0.001694343 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_72  0.001694343 Bacteria Actinobacteria      Coriobacteriia
+    # OTU_68  0.001694343 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_55  0.001694343 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_36  0.001694343 Bacteria  Bacteroidetes         Bacteroidia
+    #                      Order                Family              Genus     Species
+    # OTU_11   Enterobacteriales    Enterobacteriaceae               <NA>        <NA>
+    # OTU_111      Clostridiales       Lachnospiraceae       Epulopiscium        <NA>
+    # OTU_19       Clostridiales       Lachnospiraceae     [Ruminococcus]      gnavus
+    # OTU_77  Erysipelotrichales   Erysipelotrichaceae      [Eubacterium]    dolichum
+    # OTU_29    Turicibacterales     Turicibacteraceae       Turicibacter        <NA>
+    # OTU_115    Lactobacillales       Enterococcaceae       Enterococcus        <NA>
+    # OTU_61       Clostridiales Peptostreptococcaceae               <NA>        <NA>
+    # OTU_98       Clostridiales       Lachnospiraceae              Dorea        <NA>
+    # OTU_10       Clostridiales       Lachnospiraceae            Blautia    producta
+    # OTU_59       Clostridiales       Lachnospiraceae     [Ruminococcus]        <NA>
+    # OTU_12       Clostridiales       Ruminococcaceae   Faecalibacterium prausnitzii
+    # OTU_73  Erysipelotrichales   Erysipelotrichaceae               <NA>        <NA>
+    # OTU_44       Bacteroidales        Bacteroidaceae        Bacteroides coprophilus
+    # OTU_76       Clostridiales       Ruminococcaceae       Oscillospira        <NA>
+    # OTU_27       Clostridiales       Ruminococcaceae       Ruminococcus        <NA>
+    # OTU_74       Clostridiales    [Mogibacteriaceae]               <NA>        <NA>
+    # OTU_69       Bacteroidales        Bacteroidaceae        Bacteroides   uniformis
+    # OTU_39       Bacteroidales    Porphyromonadaceae    Parabacteroides        <NA>
+    # OTU_8        Bacteroidales        Prevotellaceae         Prevotella       copri
+    # OTU_26       Bacteroidales                 S24-7               <NA>        <NA>
+    # OTU_57       Aeromonadales   Succinivibrionaceae               <NA>        <NA>
+    # OTU_72    Coriobacteriales     Coriobacteriaceae      Adlercreutzia        <NA>
+    # OTU_68       Aeromonadales   Succinivibrionaceae Anaerobiospirillum        <NA>
+    # OTU_55       Bacteroidales                  <NA>               <NA>        <NA>
+    # OTU_36       Bacteroidales  [Paraprevotellaceae]               <NA>        <NA>
+    
+Now again compare dog G vs. dog B with differential abundance testing (individual OTUs as opposed to merged this time)
 
     b = super.fitZig.kv(physeq = phy.temp,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_OTUs"),
             heatmap.descriptor=c("tax_annot"), main=c("Dog G vs. B, OTUs"), subt=c("subt = FDR < 0.05,|coeff| >= 1.25, >20%+ in either group"), 
@@ -1042,110 +958,9 @@ Now compare dog G vs. dog B (individual taxa)
 
     ## Default value being used.
 
-    ## it= 0, nll=18.24, log10(eps+1)=Inf, stillActive=138
-    ## it= 1, nll=19.37, log10(eps+1)=Inf, stillActive=9
-    ## it= 2, nll=19.41, log10(eps+1)=Inf, stillActive=3
-    ## it= 3, nll=19.44, log10(eps+1)=Inf, stillActive=1
-    ## it= 4, nll=19.44, log10(eps+1)=Inf, stillActive=1
-    ## it= 5, nll=19.44, log10(eps+1)=Inf, stillActive=1
-    ## it= 6, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it= 7, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it= 8, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it= 9, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=10, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=11, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=12, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=13, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=14, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=15, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=16, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=17, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=18, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=19, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=20, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=21, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=22, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=23, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=24, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=25, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=26, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=27, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=28, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=29, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=30, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=31, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=32, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=33, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=34, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=35, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=36, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=37, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=38, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=39, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=40, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=41, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=42, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=43, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=44, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=45, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=46, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=47, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=48, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=49, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=50, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=51, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=52, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=53, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=54, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=55, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=56, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=57, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=58, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=59, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=60, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=61, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=62, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=63, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=64, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=65, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=66, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=67, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=68, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=69, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=70, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=71, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=72, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=73, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=74, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=75, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=76, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=77, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=78, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=79, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=80, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=81, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=82, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=83, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=84, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=85, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=86, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=87, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=88, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=89, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=90, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=91, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=92, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=93, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=94, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=95, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=96, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=97, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=98, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## it=99, nll=19.43, log10(eps+1)=Inf, stillActive=1
-    ## There were  44 OTUs significantly different between B vs. G that met 
+    ## There were  50 OTUs significantly different between B vs. G that met 
     ##  threshold criteria of p 0.05 absolute FC 1.25 and percentage presence in at least one group of 20 % 
     ## [1] "writing results and model to file"
-    ## [1] "/home/gerrit/scratch/amw/downstream/1_25FC_0.2_Dog_GvsB_OTUs_tax_annot.pdf"
 
 ![](README_files/figure-markdown_strict/unnamed-chunk-23-1.png)![](README_files/figure-markdown_strict/unnamed-chunk-23-2.png)
 
@@ -1153,335 +968,304 @@ Now compare dog G vs. dog B (individual taxa)
 
     b
 
-    ##         percent_positive_group0 percent_positive_group1
-    ## OTU_44                      100                     100
-    ## OTU_45                      100                     100
-    ## OTU_10                      100                     100
-    ## OTU_71                      100                      80
-    ## OTU_85                      100                      20
-    ## OTU_57                      100                     100
-    ## OTU_18                      100                     100
-    ## OTU_70                      100                     100
-    ## OTU_19                      100                     100
-    ## OTU_20                      100                     100
-    ## OTU_32                      100                     100
-    ## OTU_28                      100                     100
-    ## OTU_51                      100                     100
-    ## OTU_11                      100                     100
-    ## OTU_47                      100                     100
-    ## OTU_13                      100                     100
-    ## OTU_59                      100                     100
-    ## OTU_92                       80                     100
-    ## OTU_26                      100                     100
-    ## OTU_104                     100                     100
-    ## OTU_101                     100                     100
-    ## OTU_141                     100                     100
-    ## OTU_73                       80                     100
-    ## OTU_52                       80                     100
-    ## OTU_105                       0                     100
-    ## OTU_174                      80                     100
-    ## OTU_117                     100                     100
-    ## OTU_9                       100                     100
-    ## OTU_154                      40                      20
-    ## OTU_82                       60                     100
-    ## OTU_77                       60                     100
-    ## OTU_24                      100                     100
-    ## OTU_55                       20                     100
-    ## OTU_96                       40                      40
-    ## OTU_64                       40                     100
-    ## OTU_68                        0                     100
-    ## OTU_50                       40                     100
-    ## OTU_66                       60                     100
-    ## OTU_54                       60                     100
-    ## OTU_78                       20                     100
-    ## OTU_34                       40                     100
-    ## OTU_56                       20                     100
-    ## OTU_41                       40                     100
-    ## OTU_116                     100                     100
-    ##         +samples in group 0 +samples in group 1 mean_positive_group0
-    ## OTU_44                    5                   5                  531
-    ## OTU_45                    5                   5                  521
-    ## OTU_10                    5                   5                 3645
-    ## OTU_71                    5                   4                  136
-    ## OTU_85                    5                   1                   36
-    ## OTU_57                    5                   5                  152
-    ## OTU_18                    5                   5                 1142
-    ## OTU_70                    5                   5                   74
-    ## OTU_19                    5                   5                 1320
-    ## OTU_20                    5                   5                  583
-    ## OTU_32                    5                   5                  103
-    ## OTU_28                    5                   5                 1147
-    ## OTU_51                    5                   5                  130
-    ## OTU_11                    5                   5                 3377
-    ## OTU_47                    5                   5                 1522
-    ## OTU_13                    5                   5                 1822
-    ## OTU_59                    5                   5                  105
-    ## OTU_92                    4                   5                    4
-    ## OTU_26                    5                   5                   98
-    ## OTU_104                   5                   5                   19
-    ## OTU_101                   5                   5                    6
-    ## OTU_141                   5                   5                   32
-    ## OTU_73                    4                   5                    6
-    ## OTU_52                    4                   5                   32
-    ## OTU_105                   0                   5                  NaN
-    ## OTU_174                   4                   5                    5
-    ## OTU_117                   5                   5                   14
-    ## OTU_9                     5                   5                 1510
-    ## OTU_154                   2                   1                    2
-    ## OTU_82                    3                   5                    7
-    ## OTU_77                    3                   5                    3
-    ## OTU_24                    5                   5                   20
-    ## OTU_55                    1                   5                    3
-    ## OTU_96                    2                   2                   22
-    ## OTU_64                    2                   5                    2
-    ## OTU_68                    0                   5                  NaN
-    ## OTU_50                    2                   5                    2
-    ## OTU_66                    3                   5                    4
-    ## OTU_54                    3                   5                    2
-    ## OTU_78                    1                   5                    1
-    ## OTU_34                    2                   5                   10
-    ## OTU_56                    1                   5                    4
-    ## OTU_41                    2                   5                    4
-    ## OTU_116                   5                   5                   23
-    ##         mean_positive_group1 oddsRatio      lower       upper     fisherP
-    ## OTU_44                     9  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_45                    13  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_10                    70  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_71                     4       Inf 0.02564066         Inf 1.000000000
-    ## OTU_85                     2       Inf 1.02482226         Inf 0.047619048
-    ## OTU_57                    17  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_18                    85  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_70                     8  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_19                   115  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_20                   245  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_32                    77  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_28                   241  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_51                    50  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_11                   806  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_47                   554  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_13                   588  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_59                    32  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_92                    26  0.000000 0.00000000  39.0005500 1.000000000
-    ## OTU_26                  1026  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_104                   86  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_101                   32  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_141                  147  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_73                    48  0.000000 0.00000000  39.0005500 1.000000000
-    ## OTU_52                   194  0.000000 0.00000000  39.0005500 1.000000000
-    ## OTU_105                    8  0.000000 0.00000000   0.4353226 0.007936508
-    ## OTU_174                   20  0.000000 0.00000000  39.0005500 1.000000000
-    ## OTU_117                  152  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_9                  15388  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_154                   14  2.414224 0.08474680 195.6529809 1.000000000
-    ## OTU_82                    72  0.000000 0.00000000   5.1183766 0.444444444
-    ## OTU_77                    45  0.000000 0.00000000   5.1183766 0.444444444
-    ## OTU_24                   455  0.000000 0.00000000         Inf 1.000000000
-    ## OTU_55                    93  0.000000 0.00000000   0.9757790 0.047619048
-    ## OTU_96                    19  1.000000 0.04224561  23.6710987 1.000000000
-    ## OTU_64                   138  0.000000 0.00000000   2.0268713 0.166666667
-    ## OTU_68                    52  0.000000 0.00000000   0.4353226 0.007936508
-    ## OTU_50                    88  0.000000 0.00000000   2.0268713 0.166666667
-    ## OTU_66                    88  0.000000 0.00000000   5.1183766 0.444444444
-    ## OTU_54                   104  0.000000 0.00000000   5.1183766 0.444444444
-    ## OTU_78                    52  0.000000 0.00000000   0.9757790 0.047619048
-    ## OTU_34                   781  0.000000 0.00000000   2.0268713 0.166666667
-    ## OTU_56                   264  0.000000 0.00000000   0.9757790 0.047619048
-    ## OTU_41                   635  0.000000 0.00000000   2.0268713 0.166666667
-    ## OTU_116                 6243  0.000000 0.00000000         Inf 1.000000000
-    ##         fisherAdjP     coeff      pvalues   adjPvalues  Kingdom
-    ## OTU_44   1.0000000 -6.452149 1.278213e-04 2.188940e-03 Bacteria
-    ## OTU_45   1.0000000 -6.258280 5.161248e-08 7.070910e-06 Bacteria
-    ## OTU_10   1.0000000 -4.822274 6.342219e-03 2.473993e-02 Bacteria
-    ## OTU_71   1.0000000 -4.161072 6.863480e-04 5.531158e-03 Bacteria
-    ## OTU_85   0.4693878 -3.675842 7.287746e-04 5.546784e-03 Bacteria
-    ## OTU_57   1.0000000 -3.166523 1.690626e-03 1.007025e-02 Bacteria
-    ## OTU_18   1.0000000 -3.153951 1.122893e-03 7.325541e-03 Bacteria
-    ## OTU_70   1.0000000 -3.140823 2.647313e-03 1.450727e-02 Bacteria
-    ## OTU_19   1.0000000 -3.039097 9.019078e-05 2.028373e-03 Bacteria
-    ## OTU_20   1.0000000 -2.731507 3.780328e-03 1.803105e-02 Bacteria
-    ## OTU_32   1.0000000 -2.704828 8.567859e-03 3.088939e-02 Bacteria
-    ## OTU_28   1.0000000 -2.577207 1.431669e-03 8.915395e-03 Bacteria
-    ## OTU_51   1.0000000 -2.065738 9.319273e-04 6.719686e-03 Bacteria
-    ## OTU_11   1.0000000 -1.982204 9.617979e-03 3.294158e-02 Bacteria
-    ## OTU_47   1.0000000 -1.949285 1.853111e-03 1.057817e-02 Bacteria
-    ## OTU_13   1.0000000 -1.801759 6.011705e-03 2.422363e-02 Bacteria
-    ## OTU_59   1.0000000 -1.698921 5.628693e-03 2.336760e-02 Bacteria
-    ## OTU_92   1.0000000  1.649828 9.601959e-03 3.294158e-02 Bacteria
-    ## OTU_26   1.0000000  1.943959 1.210695e-02 4.045492e-02 Bacteria
-    ## OTU_104  1.0000000  2.061113 1.388219e-02 4.322410e-02 Bacteria
-    ## OTU_101  1.0000000  2.212144 5.331985e-03 2.282756e-02 Bacteria
-    ## OTU_141  1.0000000  2.297183 6.501002e-03 2.473993e-02 Bacteria
-    ## OTU_73   1.0000000  2.469124 3.725810e-03 1.803105e-02 Bacteria
-    ## OTU_52   1.0000000  2.609183 1.339480e-02 4.267645e-02 Bacteria
-    ## OTU_105  0.2738095  2.807601 6.746812e-03 2.498144e-02 Bacteria
-    ## OTU_174  1.0000000  2.849916 3.816792e-03 1.803105e-02 Bacteria
-    ## OTU_117  1.0000000  3.073081 1.006966e-03 6.897716e-03 Bacteria
-    ## OTU_9    1.0000000  3.318921 4.471045e-03 2.041777e-02 Bacteria
-    ## OTU_154  1.0000000  3.334589 1.318015e-02 4.267645e-02 Bacteria
-    ## OTU_82   1.0000000  3.479223 3.618063e-04 3.831248e-03 Bacteria
-    ## OTU_77   1.0000000  3.502925 5.132801e-04 4.687958e-03 Bacteria
-    ## OTU_24   1.0000000  4.110471 6.253611e-04 5.354654e-03 Bacteria
-    ## OTU_55   0.4693878  4.564643 3.424357e-04 3.831248e-03 Bacteria
-    ## OTU_96   1.0000000  4.728294 4.799093e-03 2.120889e-02 Bacteria
-    ## OTU_64   1.0000000  4.929019 3.385932e-04 3.831248e-03 Bacteria
-    ## OTU_68   0.2738095  4.966152 3.635491e-04 3.831248e-03 Bacteria
-    ## OTU_50   1.0000000  5.017722 2.461335e-04 3.746699e-03 Bacteria
-    ## OTU_66   1.0000000  5.047824 3.648418e-03 1.803105e-02 Bacteria
-    ## OTU_54   1.0000000  5.277387 5.616288e-05 1.538863e-03 Bacteria
-    ## OTU_78   0.4693878  5.486823 4.784650e-05 1.538863e-03 Bacteria
-    ## OTU_34   1.0000000  5.766382 1.036395e-04 2.028373e-03 Bacteria
-    ## OTU_56   0.4693878  5.841937 4.867022e-05 1.538863e-03 Bacteria
-    ## OTU_41   1.0000000  6.100335 4.439625e-04 4.344490e-03 Bacteria
-    ## OTU_116  1.0000000  8.970073 6.057725e-07 4.149542e-05 Bacteria
-    ##                 Phylum               Class              Order
-    ## OTU_44      Firmicutes          Clostridia      Clostridiales
-    ## OTU_45      Firmicutes          Clostridia      Clostridiales
-    ## OTU_10  Proteobacteria Gammaproteobacteria  Enterobacteriales
-    ## OTU_71      Firmicutes          Clostridia      Clostridiales
-    ## OTU_85      Firmicutes     Erysipelotrichi Erysipelotrichales
-    ## OTU_57      Firmicutes          Clostridia      Clostridiales
-    ## OTU_18      Firmicutes          Clostridia      Clostridiales
-    ## OTU_70      Firmicutes     Erysipelotrichi Erysipelotrichales
-    ## OTU_19      Firmicutes          Clostridia      Clostridiales
-    ## OTU_20   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_32   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_28      Firmicutes             Bacilli   Turicibacterales
-    ## OTU_51      Firmicutes          Clostridia      Clostridiales
-    ## OTU_11      Firmicutes          Clostridia      Clostridiales
-    ## OTU_47      Firmicutes          Clostridia      Clostridiales
-    ## OTU_13      Firmicutes          Clostridia      Clostridiales
-    ## OTU_59      Firmicutes          Clostridia      Clostridiales
-    ## OTU_92      Firmicutes          Clostridia      Clostridiales
-    ## OTU_26      Firmicutes          Clostridia      Clostridiales
-    ## OTU_104   Fusobacteria       Fusobacteriia    Fusobacteriales
-    ## OTU_101     Firmicutes          Clostridia      Clostridiales
-    ## OTU_141   Fusobacteria       Fusobacteriia    Fusobacteriales
-    ## OTU_73      Firmicutes          Clostridia      Clostridiales
-    ## OTU_52   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_105     Firmicutes     Erysipelotrichi Erysipelotrichales
-    ## OTU_174     Firmicutes          Clostridia      Clostridiales
-    ## OTU_117  Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_9    Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_154     Firmicutes          Clostridia      Clostridiales
-    ## OTU_82      Firmicutes          Clostridia      Clostridiales
-    ## OTU_77      Firmicutes          Clostridia      Clostridiales
-    ## OTU_24   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_55  Proteobacteria Gammaproteobacteria      Aeromonadales
-    ## OTU_96      Firmicutes          Clostridia      Clostridiales
-    ## OTU_64  Proteobacteria Gammaproteobacteria      Aeromonadales
-    ## OTU_68  Actinobacteria      Coriobacteriia   Coriobacteriales
-    ## OTU_50   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_66   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_54  Proteobacteria Gammaproteobacteria      Aeromonadales
-    ## OTU_78      Firmicutes          Clostridia      Clostridiales
-    ## OTU_34   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_56   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_41   Bacteroidetes         Bacteroidia      Bacteroidales
-    ## OTU_116  Bacteroidetes         Bacteroidia      Bacteroidales
-    ##                        Family              Genus     Species
-    ## OTU_44        Lachnospiraceae              Dorea            
-    ## OTU_45        Lachnospiraceae              Dorea            
-    ## OTU_10     Enterobacteriaceae                               
-    ## OTU_71  Peptostreptococcaceae                               
-    ## OTU_85    Erysipelotrichaceae                               
-    ## OTU_57         Clostridiaceae                               
-    ## OTU_18        Lachnospiraceae     [Ruminococcus]      gnavus
-    ## OTU_70    Erysipelotrichaceae                               
-    ## OTU_19        Lachnospiraceae                               
-    ## OTU_20         Bacteroidaceae        Bacteroides            
-    ## OTU_32         Bacteroidaceae        Bacteroides            
-    ## OTU_28      Turicibacteraceae       Turicibacter            
-    ## OTU_51        Lachnospiraceae                               
-    ## OTU_11        Lachnospiraceae            Blautia    producta
-    ## OTU_47        Lachnospiraceae               <NA>        <NA>
-    ## OTU_13        Ruminococcaceae   Faecalibacterium prausnitzii
-    ## OTU_59        Lachnospiraceae     [Ruminococcus]            
-    ## OTU_92        Ruminococcaceae       Oscillospira            
-    ## OTU_26        Lachnospiraceae                               
-    ## OTU_104      Fusobacteriaceae      Fusobacterium            
-    ## OTU_101       Ruminococcaceae       Oscillospira            
-    ## OTU_141      Fusobacteriaceae      Fusobacterium            
-    ## OTU_73        Ruminococcaceae       Oscillospira            
-    ## OTU_52         Bacteroidaceae        Bacteroides            
-    ## OTU_105   Erysipelotrichaceae                               
-    ## OTU_174       Lachnospiraceae              Dorea            
-    ## OTU_117        Prevotellaceae         Prevotella       copri
-    ## OTU_9          Prevotellaceae         Prevotella       copri
-    ## OTU_154       Ruminococcaceae                               
-    ## OTU_82     [Mogibacteriaceae]                               
-    ## OTU_77        Lachnospiraceae                               
-    ## OTU_24                  S24-7                               
-    ## OTU_55    Succinivibrionaceae Anaerobiospirillum            
-    ## OTU_96        Veillonellaceae        Megasphaera            
-    ## OTU_64    Succinivibrionaceae Anaerobiospirillum            
-    ## OTU_68      Coriobacteriaceae      Adlercreutzia            
-    ## OTU_50     Porphyromonadaceae    Parabacteroides            
-    ## OTU_66         Bacteroidaceae        Bacteroides   uniformis
-    ## OTU_54    Succinivibrionaceae                               
-    ## OTU_78                                                      
-    ## OTU_34   [Paraprevotellaceae]               <NA>        <NA>
-    ## OTU_56                                                      
-    ## OTU_41   [Paraprevotellaceae]       [Prevotella]            
-    ## OTU_116  [Paraprevotellaceae]       [Prevotella]
+    #         percent_positive_group0 percent_positive_group1 +samples in group 0
+    # OTU_40                      100                     100                   5
+    # OTU_43                      100                     100                   5
+    # OTU_11                      100                     100                   5
+    # OTU_61                      100                      80                   5
+    # OTU_87                      100                      20                   5
+    # OTU_111                      80                       0                   4
+    # OTU_19                      100                     100                   5
+    # OTU_77                      100                      80                   5
+    # OTU_73                      100                     100                   5
+    # OTU_53                      100                     100                   5
+    # OTU_18                      100                     100                   5
+    # OTU_21                      100                     100                   5
+    # OTU_29                      100                     100                   5
+    # OTU_33                      100                     100                   5
+    # OTU_49                      100                     100                   5
+    # OTU_10                      100                     100                   5
+    # OTU_46                      100                     100                   5
+    # OTU_12                      100                     100                   5
+    # OTU_51                      100                     100                   5
+    # OTU_59                      100                     100                   5
+    # OTU_96                       80                     100                   4
+    # OTU_103                      60                     100                   3
+    # OTU_150                     100                     100                   5
+    # OTU_101                     100                     100                   5
+    # OTU_24                      100                     100                   5
+    # OTU_140                     100                     100                   5
+    # OTU_97                      100                     100                   5
+    # OTU_76                       80                     100                   4
+    # OTU_54                       80                     100                   4
+    # OTU_179                      80                     100                   4
+    # OTU_100                       0                     100                   0
+    # OTU_144                      40                      20                   2
+    # OTU_121                     100                     100                   5
+    # OTU_27                      100                     100                   5
+    # OTU_8                       100                     100                   5
+    # OTU_74                       60                     100                   3
+    # OTU_82                       60                     100                   3
+    # OTU_99                       40                      40                   2
+    # OTU_26                      100                     100                   5
+    # OTU_58                       20                     100                   1
+    # OTU_69                       60                     100                   3
+    # OTU_52                       40                     100                   2
+    # OTU_68                       40                     100                   2
+    # OTU_72                        0                     100                   0
+    # OTU_57                       60                     100                   3
+    # OTU_81                       20                     100                   1
+    # OTU_36                       40                     100                   2
+    # OTU_55                       20                     100                   1
+    # OTU_107                     100                     100                   5
+    # OTU_42                       40                     100                   2
+    #         +samples in group 1 mean_positive_group0 mean_positive_group1 oddsRatio
+    # OTU_40                    5                  531                    9  0.000000
+    # OTU_43                    5                  520                   13  0.000000
+    # OTU_11                    5                 3645                   70  0.000000
+    # OTU_61                    4                  136                    4       Inf
+    # OTU_87                    1                   36                    2       Inf
+    # OTU_111                   0                   27                  NaN       Inf
+    # OTU_19                    5                 1142                   85  0.000000
+    # OTU_77                    4                   66                    6       Inf
+    # OTU_73                    5                   74                    8  0.000000
+    # OTU_53                    5                  152                   17  0.000000
+    # OTU_18                    5                 1320                  115  0.000000
+    # OTU_21                    5                  582                  245  0.000000
+    # OTU_29                    5                 1147                  241  0.000000
+    # OTU_33                    5                  103                   77  0.000000
+    # OTU_49                    5                  130                   50  0.000000
+    # OTU_10                    5                 3376                  804  0.000000
+    # OTU_46                    5                 1520                  554  0.000000
+    # OTU_12                    5                 1821                  588  0.000000
+    # OTU_51                    5                  583                  149  0.000000
+    # OTU_59                    5                  105                   32  0.000000
+    # OTU_96                    5                    4                   26  0.000000
+    # OTU_103                   5                    3                   16  0.000000
+    # OTU_150                   5                   19                   70  0.000000
+    # OTU_101                   5                   19                   86  0.000000
+    # OTU_24                    5                   99                 1032  0.000000
+    # OTU_140                   5                   32                  147  0.000000
+    # OTU_97                    5                    6                   32  0.000000
+    # OTU_76                    5                    6                   48  0.000000
+    # OTU_54                    5                   32                  194  0.000000
+    # OTU_179                   5                    5                   20  0.000000
+    # OTU_100                   5                  NaN                    8  0.000000
+    # OTU_144                   1                    2                   14  2.414224
+    # OTU_121                   5                   14                  151  0.000000
+    # OTU_27                    5                  234                 1452  0.000000
+    # OTU_8                     5                 1510                15389  0.000000
+    # OTU_74                    5                    7                   73  0.000000
+    # OTU_82                    5                    3                   45  0.000000
+    # OTU_99                    2                   22                   19  1.000000
+    # OTU_26                    5                   20                  456  0.000000
+    # OTU_58                    5                    3                   93  0.000000
+    # OTU_69                    5                    4                   88  0.000000
+    # OTU_52                    5                    2                   88  0.000000
+    # OTU_68                    5                    2                  138  0.000000
+    # OTU_72                    5                  NaN                   52  0.000000
+    # OTU_57                    5                    2                  104  0.000000
+    # OTU_81                    5                    1                   52  0.000000
+    # OTU_36                    5                   10                  782  0.000000
+    # OTU_55                    5                    4                  264  0.000000
+    # OTU_107                   5                    4                  390  0.000000
+    # OTU_42                    5                    4                  617  0.000000
+    #              lower       upper     fisherP fisherAdjP     coeff      pvalues
+    # OTU_40  0.00000000         Inf 1.000000000  1.0000000 -6.373510 1.161859e-04
+    # OTU_43  0.00000000         Inf 1.000000000  1.0000000 -6.116606 3.553180e-08
+    # OTU_11  0.00000000         Inf 1.000000000  1.0000000 -4.933445 4.446080e-03
+    # OTU_61  0.02564066         Inf 1.000000000  1.0000000 -4.218071 3.696573e-04
+    # OTU_87  1.02482226         Inf 0.047619048  0.4945055 -3.748359 5.548120e-04
+    # OTU_111 1.02482226         Inf 0.047619048  0.4945055 -3.174336 8.409156e-03
+    # OTU_19  0.00000000         Inf 1.000000000  1.0000000 -3.172581 6.922310e-04
+    # OTU_77  0.02564066         Inf 1.000000000  1.0000000 -3.142696 1.098060e-02
+    # OTU_73  0.00000000         Inf 1.000000000  1.0000000 -3.135823 2.036489e-03
+    # OTU_53  0.00000000         Inf 1.000000000  1.0000000 -3.119165 1.374650e-03
+    # OTU_18  0.00000000         Inf 1.000000000  1.0000000 -3.088471 4.194520e-05
+    # OTU_21  0.00000000         Inf 1.000000000  1.0000000 -2.532059 5.009580e-03
+    # OTU_29  0.00000000         Inf 1.000000000  1.0000000 -2.525171 1.153153e-03
+    # OTU_33  0.00000000         Inf 1.000000000  1.0000000 -2.470870 8.434795e-03
+    # OTU_49  0.00000000         Inf 1.000000000  1.0000000 -1.971867 6.883067e-04
+    # OTU_10  0.00000000         Inf 1.000000000  1.0000000 -1.969584 7.249005e-03
+    # OTU_46  0.00000000         Inf 1.000000000  1.0000000 -1.849698 1.797311e-03
+    # OTU_12  0.00000000         Inf 1.000000000  1.0000000 -1.765926 4.479910e-03
+    # OTU_51  0.00000000         Inf 1.000000000  1.0000000 -1.737633 1.286803e-02
+    # OTU_59  0.00000000         Inf 1.000000000  1.0000000 -1.694662 3.579636e-03
+    # OTU_96  0.00000000  39.0005500 1.000000000  1.0000000  1.782623 3.303245e-03
+    # OTU_103 0.00000000   5.1183766 0.444444444  1.0000000  1.875474 1.630828e-02
+    # OTU_150 0.00000000         Inf 1.000000000  1.0000000  1.928554 1.360546e-02
+    # OTU_101 0.00000000         Inf 1.000000000  1.0000000  2.051487 9.561004e-03
+    # OTU_24  0.00000000         Inf 1.000000000  1.0000000  2.141545 5.876923e-03
+    # OTU_140 0.00000000         Inf 1.000000000  1.0000000  2.222339 6.006384e-03
+    # OTU_97  0.00000000         Inf 1.000000000  1.0000000  2.235028 3.419388e-03
+    # OTU_76  0.00000000  39.0005500 1.000000000  1.0000000  2.551360 2.190170e-03
+    # OTU_54  0.00000000  39.0005500 1.000000000  1.0000000  2.784766 7.190695e-03
+    # OTU_179 0.00000000  39.0005500 1.000000000  1.0000000  2.856890 2.538883e-03
+    # OTU_100 0.00000000   0.4353226 0.007936508  0.2678571  2.883321 4.244577e-03
+    # OTU_144 0.08474680 195.6529809 1.000000000  1.0000000  3.083691 1.634276e-02
+    # OTU_121 0.00000000         Inf 1.000000000  1.0000000  3.152170 5.164026e-04
+    # OTU_27  0.00000000         Inf 1.000000000  1.0000000  3.296192 1.351744e-02
+    # OTU_8   0.00000000         Inf 1.000000000  1.0000000  3.446926 2.604093e-03
+    # OTU_74  0.00000000   5.1183766 0.444444444  1.0000000  3.520824 2.496783e-04
+    # OTU_82  0.00000000   5.1183766 0.444444444  1.0000000  3.572533 3.223800e-04
+    # OTU_99  0.04224561  23.6710987 1.000000000  1.0000000  3.927970 1.120486e-02
+    # OTU_26  0.00000000         Inf 1.000000000  1.0000000  4.105738 3.395129e-04
+    # OTU_58  0.00000000   0.9757790 0.047619048  0.4945055  4.674182 2.405784e-04
+    # OTU_69  0.00000000   5.1183766 0.444444444  1.0000000  4.879486 3.974350e-03
+    # OTU_52  0.00000000   2.0268713 0.166666667  1.0000000  4.955954 2.132559e-04
+    # OTU_68  0.00000000   2.0268713 0.166666667  1.0000000  4.970360 2.419041e-04
+    # OTU_72  0.00000000   0.4353226 0.007936508  0.2678571  5.046503 2.701118e-04
+    # OTU_57  0.00000000   5.1183766 0.444444444  1.0000000  5.220055 4.959533e-05
+    # OTU_81  0.00000000   0.9757790 0.047619048  0.4945055  5.423223 3.629421e-05
+    # OTU_36  0.00000000   2.0268713 0.166666667  1.0000000  5.803801 6.882302e-05
+    # OTU_55  0.00000000   0.9757790 0.047619048  0.4945055  5.880385 3.425031e-05
+    # OTU_107 0.00000000         Inf 1.000000000  1.0000000  6.222838 9.419693e-07
+    # OTU_42  0.00000000   2.0268713 0.166666667  1.0000000  6.234114 3.490600e-04
+    #           adjPvalues  Kingdom         Phylum               Class
+    # OTU_40  1.946113e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_43  4.761262e-06 Bacteria     Firmicutes          Clostridia
+    # OTU_11  1.715166e-02 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_61  2.913770e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_87  3.912885e-03 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_111 2.691101e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_19  4.417093e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_77  3.336559e-02 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_73  1.091558e-02 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_53  8.008833e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_18  1.107629e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_21  1.864677e-02 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_29  7.023750e-03 Bacteria     Firmicutes             Bacilli
+    # OTU_33  2.691101e-02 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_49  4.417093e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_10  2.428417e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_46  1.003499e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_12  1.715166e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_51  3.748513e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_59  1.547327e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_96  1.526327e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_103 4.379859e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_150 3.798190e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_101 2.979476e-02 Bacteria   Fusobacteria       Fusobacteriia
+    # OTU_24  2.118041e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_140 2.118041e-02 Bacteria   Fusobacteria       Fusobacteriia
+    # OTU_97  1.527327e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_76  1.128780e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_54  2.428417e-02 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_179 1.246244e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_100 1.715166e-02 Bacteria     Firmicutes     Erysipelotrichi
+    # OTU_144 4.379859e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_121 3.844331e-03 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_27  3.798190e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_8   1.246244e-02 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_74  2.784229e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_82  2.913770e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_99  3.336559e-02 Bacteria     Firmicutes          Clostridia
+    # OTU_26  2.913770e-03 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_58  2.784229e-03 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_69  1.664259e-02 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_52  2.784229e-03 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_68  2.784229e-03 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_72  2.784229e-03 Bacteria Actinobacteria      Coriobacteriia
+    # OTU_57  1.107629e-03 Bacteria Proteobacteria Gammaproteobacteria
+    # OTU_81  1.107629e-03 Bacteria     Firmicutes          Clostridia
+    # OTU_36  1.317469e-03 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_55  1.107629e-03 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_107 6.311194e-05 Bacteria  Bacteroidetes         Bacteroidia
+    # OTU_42  2.913770e-03 Bacteria  Bacteroidetes         Bacteroidia
+    #                      Order                Family              Genus     Species
+    # OTU_40       Clostridiales       Lachnospiraceae              Dorea            
+    # OTU_43       Clostridiales       Lachnospiraceae              Dorea            
+    # OTU_11   Enterobacteriales    Enterobacteriaceae                               
+    # OTU_61       Clostridiales Peptostreptococcaceae                               
+    # OTU_87  Erysipelotrichales   Erysipelotrichaceae                               
+    # OTU_111      Clostridiales       Lachnospiraceae       Epulopiscium            
+    # OTU_19       Clostridiales       Lachnospiraceae     [Ruminococcus]      gnavus
+    # OTU_77  Erysipelotrichales   Erysipelotrichaceae      [Eubacterium]    dolichum
+    # OTU_73  Erysipelotrichales   Erysipelotrichaceae                               
+    # OTU_53       Clostridiales        Clostridiaceae                               
+    # OTU_18       Clostridiales       Lachnospiraceae                               
+    # OTU_21       Bacteroidales        Bacteroidaceae        Bacteroides            
+    # OTU_29    Turicibacterales     Turicibacteraceae       Turicibacter            
+    # OTU_33       Bacteroidales        Bacteroidaceae        Bacteroides            
+    # OTU_49       Clostridiales       Lachnospiraceae                               
+    # OTU_10       Clostridiales       Lachnospiraceae            Blautia    producta
+    # OTU_46       Clostridiales       Lachnospiraceae               <NA>        <NA>
+    # OTU_12       Clostridiales       Ruminococcaceae   Faecalibacterium prausnitzii
+    # OTU_51       Clostridiales                                                     
+    # OTU_59       Clostridiales       Lachnospiraceae     [Ruminococcus]            
+    # OTU_96       Clostridiales       Ruminococcaceae       Oscillospira            
+    # OTU_103      Clostridiales       Ruminococcaceae       Oscillospira            
+    # OTU_150      Clostridiales       Lachnospiraceae                               
+    # OTU_101    Fusobacteriales      Fusobacteriaceae      Fusobacterium            
+    # OTU_24       Clostridiales       Lachnospiraceae                               
+    # OTU_140    Fusobacteriales      Fusobacteriaceae      Fusobacterium            
+    # OTU_97       Clostridiales       Ruminococcaceae       Oscillospira            
+    # OTU_76       Clostridiales       Ruminococcaceae       Oscillospira            
+    # OTU_54       Bacteroidales        Bacteroidaceae        Bacteroides            
+    # OTU_179      Clostridiales       Lachnospiraceae              Dorea            
+    # OTU_100 Erysipelotrichales   Erysipelotrichaceae                               
+    # OTU_144      Clostridiales       Ruminococcaceae                               
+    # OTU_121      Bacteroidales        Prevotellaceae         Prevotella       copri
+    # OTU_27       Clostridiales       Ruminococcaceae       Ruminococcus            
+    # OTU_8        Bacteroidales        Prevotellaceae         Prevotella       copri
+    # OTU_74       Clostridiales    [Mogibacteriaceae]                               
+    # OTU_82       Clostridiales       Lachnospiraceae                               
+    # OTU_99       Clostridiales       Veillonellaceae        Megasphaera            
+    # OTU_26       Bacteroidales                 S24-7                               
+    # OTU_58       Aeromonadales   Succinivibrionaceae Anaerobiospirillum            
+    # OTU_69       Bacteroidales        Bacteroidaceae        Bacteroides   uniformis
+    # OTU_52       Bacteroidales    Porphyromonadaceae    Parabacteroides            
+    # OTU_68       Aeromonadales   Succinivibrionaceae Anaerobiospirillum            
+    # OTU_72    Coriobacteriales     Coriobacteriaceae      Adlercreutzia            
+    # OTU_57       Aeromonadales   Succinivibrionaceae                               
+    # OTU_81       Clostridiales                                                     
+    # OTU_36       Bacteroidales  [Paraprevotellaceae]               <NA>        <NA>
+    # OTU_55       Bacteroidales                                                     
+    # OTU_107      Bacteroidales  [Paraprevotellaceae]       [Prevotella]            
+    # OTU_42       Bacteroidales  [Paraprevotellaceae]       [Prevotella]      
 
     sessionInfo()
-
-    ## R version 3.3.2 (2016-10-31)
-    ## Platform: x86_64-pc-linux-gnu (64-bit)
-    ## Running under: Ubuntu 14.04.5 LTS
-    ## 
-    ## locale:
-    ##  [1] LC_CTYPE=en_ZA.UTF-8       LC_NUMERIC=C              
-    ##  [3] LC_TIME=en_ZA.UTF-8        LC_COLLATE=en_ZA.UTF-8    
-    ##  [5] LC_MONETARY=en_ZA.UTF-8    LC_MESSAGES=en_ZA.UTF-8   
-    ##  [7] LC_PAPER=en_ZA.UTF-8       LC_NAME=C                 
-    ##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
-    ## [11] LC_MEASUREMENT=en_ZA.UTF-8 LC_IDENTIFICATION=C       
-    ## 
-    ## attached base packages:
-    ## [1] parallel  stats     graphics  grDevices utils     datasets  methods  
-    ## [8] base     
-    ## 
-    ## other attached packages:
-    ##  [1] ROCR_1.0-7           gplots_3.0.1         dplyr_0.5.0         
-    ##  [4] randomForest_4.6-12  metagenomeSeq_1.16.0 RColorBrewer_1.1-2  
-    ##  [7] glmnet_2.0-5         foreach_1.4.3        Matrix_1.2-8        
-    ## [10] limma_3.30.13        fifer_1.1            MASS_7.3-45         
-    ## [13] matrixStats_0.51.0   psych_1.7.3.21       corrplot_0.77       
-    ## [16] vegan_2.4-2          lattice_0.20-35      permute_0.9-4       
-    ## [19] NMF_0.20.6           Biobase_2.34.0       BiocGenerics_0.20.0 
-    ## [22] cluster_2.0.6        rngtools_1.2.4       pkgmaker_0.22       
-    ## [25] registry_0.3         dunn.test_1.3.3      gridExtra_2.2.1     
-    ## [28] ggplot2_2.2.1        phyloseq_1.19.1     
-    ## 
-    ## loaded via a namespace (and not attached):
-    ##  [1] nlme_3.1-131          bitops_1.0-6          doParallel_1.0.10    
-    ##  [4] rprojroot_1.2         tools_3.3.2           backports_1.0.5      
-    ##  [7] R6_2.2.0              KernSmooth_2.23-15    rpart_4.1-10         
-    ## [10] DBI_0.6               Hmisc_4.0-2           lazyeval_0.2.0       
-    ## [13] mgcv_1.8-17           colorspace_1.3-2      ade4_1.7-6           
-    ## [16] nnet_7.3-12           mnormt_1.5-5          compiler_3.3.2       
-    ## [19] htmlTable_1.9         sandwich_2.3-4        labeling_0.3         
-    ## [22] caTools_1.17.1        scales_0.4.1          checkmate_1.8.2      
-    ## [25] mvtnorm_1.0-6         stringr_1.2.0         digest_0.6.12        
-    ## [28] foreign_0.8-67        rmarkdown_1.4         XVector_0.14.1       
-    ## [31] base64enc_0.1-3       htmltools_0.3.5       plotrix_3.6-4        
-    ## [34] maps_3.1.1            htmlwidgets_0.8       zoo_1.7-14           
-    ## [37] jsonlite_1.3          gtools_3.5.0          acepack_1.4.1        
-    ## [40] magrittr_1.5          modeltools_0.2-21     Formula_1.2-1        
-    ## [43] biomformat_1.2.0      Rcpp_0.12.10          munsell_0.4.3        
-    ## [46] S4Vectors_0.12.2      ape_4.1               stringi_1.1.3        
-    ## [49] multcomp_1.4-6        yaml_2.1.14           zlibbioc_1.20.0      
-    ## [52] rhdf5_2.18.0          plyr_1.8.4            grid_3.3.2           
-    ## [55] strucchange_1.5-1     gdata_2.17.0          Biostrings_2.42.1    
-    ## [58] splines_3.3.2         multtest_2.30.0       knitr_1.15.1         
-    ## [61] igraph_1.0.1          party_1.2-2           reshape2_1.4.2       
-    ## [64] codetools_0.2-15      stats4_3.3.2          evaluate_0.10        
-    ## [67] latticeExtra_0.6-28   data.table_1.10.4     spam_1.4-0           
-    ## [70] gtable_0.2.0          assertthat_0.1        gridBase_0.4-7       
-    ## [73] coin_1.1-3            xtable_1.8-2          survival_2.41-2      
-    ## [76] randomForestSRC_2.4.2 tibble_1.2            iterators_1.0.8      
-    ## [79] IRanges_2.8.2         fields_8.10           TH.data_1.0-8
+    # R version 3.3.0 (2016-05-03)
+    # Platform: x86_64-apple-darwin13.4.0 (64-bit)
+    # Running under: OS X 10.10.5 (Yosemite)
+    # 
+    # locale:
+    # [1] C
+    # 
+    # attached base packages:
+    # [1] parallel  stats     graphics  grDevices utils     datasets  methods  
+    # [8] base     
+    # 
+    # other attached packages:
+    #  [1] ROCR_1.0-7           gplots_3.0.1         dplyr_0.5.0         
+    #  [4] randomForest_4.6-12  metagenomeSeq_1.14.2 RColorBrewer_1.1-2  
+    #  [7] glmnet_2.0-5         foreach_1.4.3        Matrix_1.2-6        
+    # [10] limma_3.28.5         fifer_1.0            MASS_7.3-45         
+    # [13] xtable_1.8-2         matrixStats_0.50.2   psych_1.6.4         
+    # [16] corrplot_0.77        NMF_0.23.4           Biobase_2.32.0      
+    # [19] BiocGenerics_0.18.0  cluster_2.0.4        rngtools_1.2.4      
+    # [22] pkgmaker_0.26.6      registry_0.3         vegan_2.4-0         
+    # [25] lattice_0.20-33      permute_0.9-0        dunn.test_1.3.2     
+    # [28] gridExtra_2.2.1      ggplot2_2.2.1        phyloseq_1.20.0     
+    # 
+    # loaded via a namespace (and not attached):
+    #  [1] viridis_0.4.0      jsonlite_1.2       viridisLite_0.2.0  splines_3.3.0     
+    #  [5] gtools_3.5.0       assertthat_0.1     stats4_3.3.0       robustbase_0.92-6 
+    #  [9] chron_2.3-47       digest_0.6.12      XVector_0.12.0     colorspace_1.3-2  
+    # [13] plyr_1.8.4         zlibbioc_1.18.0    mvtnorm_1.0-5      scales_0.4.1      
+    # [17] gdata_2.17.0       whisker_0.3-2      tibble_1.3.0       mgcv_1.8-12       
+    # [21] IRanges_2.6.0      withr_1.0.2        nnet_7.3-12        lazyeval_0.2.0    
+    # [25] mnormt_1.5-4       survival_2.39-4    magrittr_1.5       mclust_5.2        
+    # [29] doParallel_1.0.10  nlme_3.1-128       class_7.3-14       tools_3.3.0       
+    # [33] data.table_1.9.6   gridBase_0.4-7     trimcluster_0.1-2  stringr_1.2.0     
+    # [37] S4Vectors_0.10.1   kernlab_0.9-24     munsell_0.4.3      fpc_2.1-10        
+    # [41] Biostrings_2.40.2  ade4_1.7-4         compiler_3.3.0     caTools_1.17.1    
+    # [45] rhdf5_2.16.0       grid_3.3.0         iterators_1.0.8    biomformat_1.0.2  
+    # [49] igraph_1.0.1       bitops_1.0-6       labeling_0.3       gtable_0.2.0      
+    # [53] codetools_0.2-14   multtest_2.28.0    DBI_0.4-1          flexmix_2.3-13    
+    # [57] R6_2.1.2           reshape2_1.4.2     prabclus_2.2-6     KernSmooth_2.23-15
+    # [61] dendextend_1.5.2   ape_3.5            modeltools_0.2-21  stringi_1.1.5     
+    # [65] Rcpp_0.12.10       DEoptimR_1.0-6     diptest_0.75-7    
 
 Packages req required run this tutorial
 ---------------------------------------
