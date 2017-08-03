@@ -35,8 +35,9 @@ Import data and create phyloseq object
     library(dplyr)
 
 **Import custom functions used in script**
+
     setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
-    source(paste0(getwd(),"/microbiome_custom_functions.R"))
+    source(paste0(getwd(),"/src/microbiome_custom_functions.R"))
 
     ## Loading required package: pkgmaker
 
