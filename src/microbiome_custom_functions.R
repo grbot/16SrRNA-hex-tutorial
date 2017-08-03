@@ -10,6 +10,7 @@ library(metagenomeSeq)#differential abundance testing
 library(randomForest)
 library(dplyr)
 library(ROCR)
+library(gridExtra)#for grid.arrange()
 nmf.options(grid.patch=TRUE)#set to avoid blank first pdf page being created
 
 #DEFINE CUSTOM COLOR PALETTE WHERE COLORS ARE EASIER TO DISTINGUISH FROM ONE ANOTHER
@@ -127,7 +128,7 @@ tax.lab <- function(otus, physeq, labrow=TRUE,merged=FALSE){
 #---------------------
 heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.samples = NULL, 
 		annot.cols = NULL,colours = NULL, order.by = NULL,main=NULL, subt=NULL,filename,
-		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=1, cexRow=1, scale = "none"){
+		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=0.5, cexRow=0.3, scale = "none"){
 	if(plot.otus==TRUE){
 		#If plotting OTUs - get OTUs
 		otus <- otu_table(physeq)
@@ -220,8 +221,9 @@ heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.sampl
 #---------------------
 #Generic barplot function build on phyloseq plot_bar(): NB: THE NUMBER OF SAMPLES IN EACH GROUP IS ONLY DISPLAYED CORRECTLY FOR TWO GROUPS (NOT MORE)
 #---------------------
+#NB number of taxa that can be displayed currently limited to 26 (number defined in myPalette at start of script)
 bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,cat, 
-		level, perc, order.bars = NULL,x=NULL, y=NULL, filen = "",outDir){
+		level, perc, order.bars = NULL,x.axis=NULL, y.axis=NULL, filen = "",outDir){
 	if(length(subset.samples)==0){
 		
 	}else if (length(subset.samples) >0){#if there was a subset specified:
@@ -254,13 +256,13 @@ bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,c
 		}
 	}	
 	for.title <- paste(for.title, collapse = ",")#now paste as one string for use in title
-	p2 <- plot_bar(new,x = cat,fill=level ,title = paste0(level,"-level 16S ",x,". Ns = ",for.title))+ coord_flip() + 
+	p2 <- plot_bar(new,x = cat,fill=level ,title = paste0(level,"-level 16S ",x.axis,". Ns = ",for.title))+ coord_flip() + 
 			ylab("Percentage of Sequences")+theme(axis.text=element_text(size=14),
 					axis.title=element_text(size=14),legend.title=element_text(size=16),
 					legend.text=element_text(size=14),
 					plot.title=element_text(size=14, face="bold"))+scale_x_discrete(limits=c(order.bars))+scale_fill_manual(values=myPalette)
-	p2 = p2+labs(x=x, y=y)
-	pdf(paste0(outDir,"/",filen,"",level,"_abundance_by_",x,perc,"_",count,".pdf"))
+	p2 = p2+labs(x.axis=x.axis, y.axis=y.axis)
+	pdf(paste0(outDir,"/",filen,"",level,"_abundance_by_",x.axis,perc,"_",count,".pdf"))
 	par(cex.lab = 2)
 	par(cex.axis = 2)
 	grid.arrange(p2, ncol=1)	
@@ -270,12 +272,12 @@ bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,c
 }
 #physeq: phyloseq object, standardized counts
 #cat: category of interest
-#level: level at which to perform taxa mergin
-#perc: minimum percentage of samples which should be positive for a given taxa (stringent filtering (perc=0.5) used to minimize number of taxa in figure legend, and only display most abundant taxa)
+#level: level at which to perform taxa merging
+#perc: minimum fraction of samples which should be positive for a given taxa (stringent filtering (perc=0.5) used to minimize number of taxa in figure legend, and only display most abundant taxa)
 #subset.otus = any dataframe for which the rownames will be used to subset otu.table (stats.sig)
 #subset.samples = names of samples to include in barplot
-#count = minimum OTU count sum across all samples
-#order.bars = option to order barplots  - sometimes relavant if more than 2 categories
+#count = minimum per taxon count summed across all samples
+#order.bars = option to order barplots  - sometimes relavant if more than 2 categories (e.g. order= c("classA","classB","classC")
 #x =x axis labels, 
 #y = y axis labels, 
 #filen = any other filename additions such as project name or date
