@@ -1,4 +1,4 @@
-# 16S analysis tutorial - part of Analysing the Microbiome Workshop 2017
+# 16S rRNA upstream analysis tutorial for the UCT Hex cluster.
 
 ## The dataset
 
@@ -39,12 +39,12 @@ source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_sof
 ### Setup some directory and database variables
 Be sure you have created ad temporary directory for yourself
 ```bash
-mkdir /tmp/gerrit (here you need to set the name to your username)
+mkdir /researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/gerrit (here you need to set the name to your username)
 ```
 Now set some variables.
 ```bash
 raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
-process_dir=/tmp/gerrit (here you need to change it to the temporary directory you have created)
+process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/gerrit (here you need to change it to the temporary directory you have created or already exists for you)
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
