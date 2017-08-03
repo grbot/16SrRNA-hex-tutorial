@@ -59,6 +59,24 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 1. All the outputs have been generated here `/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results`
 1. Please find someone next to you that looks like they know what they are doing. 
 1. Let me know.
+
+## This tutorial should be run in an interactive session. Please do not runnning anything on the headnode.
+
+### To get to a compute node do
+```bash
+qsub -I -q UCTlong -l walltime=04:00:00
+```
+Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
+
+```bash
+gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=04:00:00
+qsub: waiting for job 1598565.srvslshpc001 to start
+qsub: job 1598565.srvslshpc001 ready
+
+gerrit@srvslshpc601:~> hostname
+srvslshpc601
+```
+
 ## 1. Lets do some QC on the raw data
 
 ### 1.1 Run FastQC
