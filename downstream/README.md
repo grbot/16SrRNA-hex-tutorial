@@ -15,6 +15,23 @@ here:
     beta-diversity, heatmaps.
 -   Differential abundance testing by a) Dog and b) Treatment
 
+## This tutorial should be run in an interactive session. Please do not runnning anything on the headnode.
+
+### To get to a compute node do
+```bash
+qsub -I -q UCTlong -l walltime=04:00:00
+```
+Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
+
+```bash
+gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=04:00:00
+qsub: waiting for job 1598565.srvslshpc001 to start
+qsub: job 1598565.srvslshpc001 ready
+
+gerrit@srvslshpc601:~> hostname
+srvslshpc601
+
+````
 
 Load the R environment required
 -------------------------------
