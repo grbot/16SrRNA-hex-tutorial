@@ -15,6 +15,12 @@ here:
     beta-diversity, heatmaps.
 -   Differential abundance testing by a) Dog and b) Treatment
 
+
+Load the R environment required
+-------------------------------
+
+    module load software/R-3.3.0
+
 Import data and create phyloseq object
 --------------------------------------
 
