@@ -16,7 +16,7 @@ export DONT_USE_MPI=1
 
 # Additional software
 export PATH=$PATH:/opt/exp_soft/qiime/packages/other
-export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5:$PATH
+export PATH=/opt/exp_soft/qiime/packages/other/ImageMagick-6.9.3-5/install/bin/:$PATH
 export PATH=$PATH:/opt/exp_soft/seqtk
 
 # Tutorial specific code
