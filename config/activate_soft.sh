@@ -1,3 +1,5 @@
+#FastQC
+export PATH=/opt/exp_soft/qiime/packages/other/FastQC/:$PATH
 # QIIME specific
 export PYTHONPATH=/opt/exp_soft/qiime/lib/python2.7/site-packages/:$PYTHONPATH
 ## usearch would also be linked from her
