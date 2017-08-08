@@ -38,6 +38,13 @@ Load the R environment required
 
     module load software/R-3.3.0
 
+
+Setup downstream output directory change the username to what was given to you in class
+-------------------------------
+
+    mkdir /researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit/downstream_analyses
+
+
 Import data and create phyloseq object
 --------------------------------------
 
@@ -53,8 +60,7 @@ Import data and create phyloseq object
 
 **Import custom functions used in script**
 
-    setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
-    source(paste0(getwd(),"/src/microbiome_custom_functions.R"))
+   source("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/microbiome_custom_functions.R")
 
     ## Loading required package: pkgmaker
 
@@ -198,12 +204,12 @@ Import data and create phyloseq object
     ## 
     ##     lowess
 
-**Set the working directory and import data**
+**Set the working directory and import data (change the name to what was given to you in class)**
 
-    setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial")
+    setwd("/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit")
     inDir <- getwd()
-    outDir <- paste0(getwd(),"/results/downstream_analyses") # Specify output directory
-    phy <- import_biom(BIOMfilename = paste0(inDir,"/results/otus_table.tax.biom"), 
+    outDir <- paste0(getwd(),"/downstream_analyses") # Specify output directory
+    phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
             verbose = TRUE)#
     ntaxa(phy)#(number of OTUs)
 
@@ -211,7 +217,7 @@ Import data and create phyloseq object
 
     sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
     # Add phylogenetic tree (.tre file generated in QIIME)
-    tree <- read_tree_greengenes(paste0(inDir,"/results/otus_repsetOUT_aligned_pfiltered.tre"))
+    tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
     # Merge phy and tree
     phy <- merge_phyloseq(phy,tree)
 
@@ -239,7 +245,7 @@ fail**
 
 **Import metadata and merge with phyloseq object**
 
-    meta <-  read.table(paste0(inDir,"/practice.dataset1.metadata.tsv"), sep = "\t", header =TRUE, row.names=1)
+    meta <-  read.table("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/practice.dataset1.metadata.tsv", sep = "\t", header =TRUE, row.names=1)
     head(meta)
 
     ##       Dog Treatment

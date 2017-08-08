@@ -36,15 +36,10 @@ Dog31 | K | 1 | 150613 | 150613
 source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
 ```
 
-### Setup some directory and database variables
-Be sure you have created ad temporary directory for yourself
-```bash
-mkdir /researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/gerrit (here you need to set the name to your username)
-```
-Now set some variables.
+Now set some variables. For the `process_dir` set replace `gerrit` with the name that has been given to you in the class
 ```bash
 raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
-process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/gerrit (here you need to change it to the temporary directory you have created or already exists for you)
+process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
@@ -167,7 +162,7 @@ This will take about 30 seconds. Once done lets count how many OTUs were generat
 
 ### 2.9 Chimera removal
 ```bash
-usearch9 -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
+usearch9 -threads 1 -uchime2_ref $uparse_dir/otus_raw.fa -db $gold_db -mode high_confidence -strand plus -notmatched $uparse_dir/otus_chimOUT.fa
 ```
 This will take about 10 seconds. Once done lets check how many OTUs were detected as being chimeric.
 

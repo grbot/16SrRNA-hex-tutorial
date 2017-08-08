@@ -144,7 +144,7 @@ library(dplyr)
 
 
 ```r
-source("/Users/jameslennard/Documents/workspace/R_projects/R_projects/Microbiome_project/microbiome_custom_functions.R")
+source("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/microbiome_custom_functions.R")
 ```
 
 ```
@@ -300,10 +300,10 @@ source("/Users/jameslennard/Documents/workspace/R_projects/R_projects/Microbiome
 
 
 ```r
-setwd("/Users/jameslennard/Documents/Academic/Postdoc/Projects/cbio_16S_pipeline_certification/Jul17_testing")
+setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
 inDir <- getwd()#specify input directory
-outDir <- getwd()#specify output directory
-phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
+outDir <- paste0(getwd(),"/results/downstream_analyses") #specify output directory
+phy <- import_biom(BIOMfilename = paste0(inDir,"/results/otus_table.tax.biom"), 
 		verbose = TRUE)#
 ntaxa(phy) #(number of OTUs)
 ```
@@ -315,7 +315,7 @@ ntaxa(phy) #(number of OTUs)
 ```r
 sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
 #add phylogenetic tree (.tre file generated in QIIME)
-tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
+tree <- read_tree_greengenes(paste0(inDir,"/results/otus_repsetOUT_aligned_pfiltered.tre"))
 #merge phy and tree
 phy <- merge_phyloseq(phy,tree)
 ```
@@ -1222,7 +1222,7 @@ a = super.fitZig.kv(physeq = merged.phy,factor = "Dog",outDir = outDir,FileName 
 ## There were  25 OTUs significantly different between B vs. G that met 
 ##  threshold criteria of p 0.05 absolute FC 1.25 and percentage presence in at least one group of 20 % 
 ## [1] "writing results and model to file"
-## [1] "/Users/jameslennard/Documents/Academic/Postdoc/Projects/cbio_16S_pipeline_certification/Jul17_testing/1_25FC_0.2_Dog_GvsB_taxa_merged_tax_annot.pdf"
+## [1] "/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results/downstream_analyses/1_25FC_0.2_Dog_GvsB_taxa_merged_tax_annot.pdf"
 ```
 
 ![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-1.png)![plot of chunk unnamed-chunk-21](figure/unnamed-chunk-21-2.png)
@@ -1522,7 +1522,7 @@ b = super.fitZig.kv(physeq = phy.temp,factor = "Dog",outDir = outDir,FileName =c
 ## There were  50 OTUs significantly different between B vs. G that met 
 ##  threshold criteria of p 0.05 absolute FC 1.25 and percentage presence in at least one group of 20 % 
 ## [1] "writing results and model to file"
-## [1] "/Users/jameslennard/Documents/Academic/Postdoc/Projects/cbio_16S_pipeline_certification/Jul17_testing/1_25FC_0.2_Dog_GvsB_OTUs_tax_annot.pdf"
+## [1] "/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results/downstream_analyses/1_25FC_0.2_Dog_GvsB_OTUs_tax_annot.pdf"
 ```
 
 ![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22-1.png)![plot of chunk unnamed-chunk-22](figure/unnamed-chunk-22-2.png)

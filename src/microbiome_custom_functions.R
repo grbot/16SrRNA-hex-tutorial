@@ -2,8 +2,6 @@ library(phyloseq)
 library(NMF)
 library(vegan)
 library(ggplot2)
-library(corrplot)#for cor.mtest
-library(psych)#corr.test
 library(matrixStats)#rowSds
 library(fifer)
 library(metagenomeSeq)#differential abundance testing
@@ -538,118 +536,6 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 #labrow = should the heatmap be annotated with taxonomic annotations for OTU ids (TRUE/FALSE; TRUE = taxonomic annotations; FALSE = OTU IDs)
 #extra.cols = any extra columns that you would like to plot on the heatmap e.g. c("feeding","HIV_exposure")
 #------------------------------------------------------
-#MAKE FUNCTION TO PERFORM PAIRWISE CORRELATIONS, TEST FOR SIGNIFICANCE AND PLOT CORRELLOGRAM
-#mat1: matrix 1
-#mat2: matrix 2
-#p: adjusted p-value to sue as cutoff
-#use: pairwise correlations? If yes: "pairwise" if not 
-#pdf.height: specify height of correlogram .pdf in inches, default=7
-#pdf.width: specify width of correlogram .pdf in inches, default=7
-corr.k <- function(mat1, mat2, p=0.05, use = "pairwise", adjust = "BH", r = 0.3, filename, rectangles = NULL, pdf.height=NULL, pdf.width=NULL){
-	cor.mat = cor(mat1, mat2)
-	cor.p <- corr.test(mat1,mat2,use = use,adjust=adjust)#MTC adjustment with corr.test from package 'psych'
-	#NOW GET ONLY THE COLUMNS WHERE THERE ARE SIGNIFICANT ENTRIES
-	sig.mat <- cor.mat[,which(apply(cor.p$p,2,min) <= p)]
-	print(paste("There were",dim(sig.mat)[2],"significant after MTC"))
-	#also filter on the magnitude of correlation (³ 0.3)
-	sig.mat <- sig.mat[,which(apply(abs(sig.mat),2,max) >= r)]
-	sig.p <- cor.p$p[,colnames(sig.mat)] 
-	print(paste("There were",dim(sig.mat)[2],"significant entries after MTC with R >= ",r))
-	if(dim(sig.mat)[2]<=1){
-		return(sig.mat)
-	}
-	#------------------------------
-	#CALCULATE CONFIDENCE INTERVALS 
-	upper = cor.p$ci$upper
-	upper.mat = matrix(upper, dim(cor.p$p)[1],dim(cor.p$p)[2])#
-	dim(upper.mat)
-	rownames(upper.mat) <- rownames(cor.p$p)
-	colnames(upper.mat) <- colnames(cor.p$p)
-	#subset to match sig.mat
-	dim(upper.mat)
-	upper.mat <- upper.mat[rownames(sig.mat),colnames(sig.mat)]
-	dim(upper.mat)
-	lower = cor.p$ci$lower
-	lower.mat = matrix(lower, dim(cor.p$p)[1],dim(cor.p$p)[2])#
-	rownames(lower.mat) <- rownames(cor.p$p)
-	colnames(lower.mat) <- colnames(cor.p$p)
-	#subset to match sig.mat
-	lower.mat <- lower.mat[rownames(sig.mat),colnames(sig.mat)]
-	#------------------------------
-	#now sort by direction of correlation for ease of interpretation 
-	if(identical(mat1,mat2)==FALSE){
-		o.c <- colnames(sig.mat)[order(apply(sig.mat,2,mean), decreasing=FALSE)]
-		o.r <- rownames(sig.mat)[order(apply(sig.mat,1,function(x) sum(abs(x))), decreasing=FALSE)]
-		sig.mat <- sig.mat[o.r,o.c]
-		sig.p <- sig.p[o.r,o.c]
-		dim(sig.p)
-		#PLOT RESULTS AS CORRELOGRAM
-		pdf(paste0(outDir,"/",filename,".pdf"),width=pdf.width, height=pdf.height)#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,
-				insig = "blank",tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-		#REORDER CI MATRICES
-		lower.mat <- lower.mat[rownames(sig.mat),colnames(sig.mat)]
-		upper.mat <- upper.mat[rownames(sig.mat),colnames(sig.mat)]
-		#now plot with MTC and CIs:
-		pdf(paste0(outDir,"/",filename,"p.adj_",p,"_CIs.pdf"))#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,low = lower.mat, upp = upper.mat,
-				rect.col = "navy",plotC="rect",cl.pos ="n",
-				insig = "blank",tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-	}else{#PLOT RESULTS AS SQUARE CORRELOGRAM WITH HIERARCHICAL CLUSTERING
-		pdf(paste0(outDir,"/",filename,".pdf"), width=pdf.width, height=pdf.height)#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,
-				insig = "blank",order = "hclust",addrect = rectangles,tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-		#with CIs
-		#now plot with MTC and CIs:
-		pdf(paste0(outDir,"/",filename,"p.adj_",p,"_CIs.pdf"))#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,low = lower.mat, upp = upper.mat,
-				rect.col = "navy",plotC="rect",cl.pos ="n",
-				insig = "blank",order = "hclust",addrect = rectangles,tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-	}
-}
-	
-#--------------------------------------------------
-#The function MC.summary takes the output from PICRUSt's metagenome_contributions.py, together with taxonomic annotation for the OTUs included in 
-#this table and provides a summary of the contribution of each Family/Genus.. etc to ONE SPECIFIC KEGG gene e.g. K02030
-#--------------------------------------------------
-#metagenome.contributions = output from PICRUSt's metagenome_contributions.py (imported as a data frame)
-#KEGG.gene: KEGG gene of interest e.g. "K02030"
-#samples: list of sample names to be included
-#level: desired tax level for summary e.g. "Family", "Genus" depending on the column names of your tax table
-#outDir: output directory
-#file.ext: descriptive file extension such as "Family_K02030"
-#tax.table: taxonomic table for OTUs of interest
-MC.summary = function(metagenome.contributions, KEGG.gene, tax.table,samples, level,outDir, file.ext){
-	out = c()
-	for (i in 1:length(samples)) {#for each sample, summarise each family's contribution to the KEGG gene of interest
-		Kc = metagenome.contributions[metagenome.contributions$Gene == KEGG.gene,]#subset input by KEGG gene of interest
-		this.data=Kc[Kc$Sample==samples[i],]#get data for that specific sample
-		otus=this.data[,3]#get all otus for this sample and this gene
-		this.tax.table=tax.table[as.character(unique(otus)),]#get corresponding taxonomy for these OTUs.
-		tot.taxa=sum(this.data[,7] )#get the percentage contributed by all OTUs in sample i for this specific gene, which should = 1
-		taxa=unique(this.tax.table[,level] )#get list of unique taxa at required tax level
-		taxa[taxa==" "] = "other"#for taxa with no family level annotation - these will all be summarised together as 'other'
-		for (j in 1:length(taxa) ) {
-			map2fam = rownames(this.tax.table)[this.tax.table[,level] == taxa[j]]#get OTU IDs for a particular family
-			taxa.tot=sum(this.data[this.data$OTU %in% map2fam,7] )/tot.taxa#get the total percent contribution for each family to this specific gene for sample i
-			line = t(c(as.character(samples[i]), taxa[j], taxa.tot ))
-			out = rbind(line,out)
-		}
-		print(i)
-	}
-	#write results to file
-	colnames(out) = c("Sample","Taxa","Contribution")
-	out = data.frame(out)
-	out$Contribution = as.numeric(as.character(out$Contribution))
-	write.table(out,file=paste0(outDir,file.ext,'.txt'), quote=FALSE,sep = "\t", col.names=TRUE, row.names=FALSE)
-	return(out)
-}
-
-
 
 #--------------------------------------------------
 #The function RF.k performs random forests analysis on the otu table of a supplied phyloseq object.
@@ -672,7 +558,7 @@ MC.summary = function(metagenome.contributions, KEGG.gene, tax.table,samples, le
 RF.k <- function(data, seed = 212,var, ntree=500, mtry=if (!is.null(y) && !is.factor(y))
 					max(floor(ncol(x)/3), 1) else floor(sqrt(ncol(x))), cv.fold=3, outDir,Nfeatures.validation=NULL, testAndtrain=FALSE,descriptor = c(),...){#function default values supplied, change as required
 	
-	summary_file <- paste0(outDir,"RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
+	summary_file <- paste0(outDir,"/RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
 	write(print(paste(length(which(is.na(sample_data(data)[,var]))),"samples did not have response variable data, removing these...")), 
 			file = summary_file,sep = "\t")
 	sub.index <- which(!is.na(sample_data(data)[,var]))#
@@ -733,7 +619,7 @@ RF.k <- function(data, seed = 212,var, ntree=500, mtry=if (!is.null(y) && !is.fa
 	sink(summary_file, append=T)
 	print(rf.cv$error.cv)
 	sink()
-	pdf(paste0(outDir,"RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
+	pdf(paste0(outDir,"/RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
 	with(rf.cv, plot(n.var, error.cv, log="x", type="o", lwd=2))
 	dev.off()
 	#----------------------------------
@@ -769,7 +655,7 @@ RF.k <- function(data, seed = 212,var, ntree=500, mtry=if (!is.null(y) && !is.fa
 					panel.grid.major = element_blank(),  #remove major-grid labels
 					panel.grid.minor = element_blank(),  #remove minor-grid labels
 					plot.background = element_blank())
-	pdf(paste0(outDir, "RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
+	pdf(paste0(outDir, "/RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
 	print(p)
 	dev.off()
 	#------------------------------------
