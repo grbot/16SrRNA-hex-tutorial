@@ -29,24 +29,6 @@ Dog31 | K | 1 | 150613 | 150613
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
 * Once done with this tutorial you can continue with the [R downstream analysis tutorial](https://github.com/grbot/16SrRNA-hex-tutorial/tree/master/downstream) using the data generated in this tutorial.
 
-## Do some local setup
-
-### Activate software in PATH
-```bash
-source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
-```
-
-Now set some variables. For the `process_dir` set replace `gerrit` with the name that has been given to you in the class
-```bash
-raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
-process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit
-uparse_dir=$process_dir/uparse
-taxonomy_dir=$process_dir/tax
-alignment_dir=$process_dir/align
-greengenes_db=/scratch/DB/bio/qiime/greengenes/gg_13_8_otus
-gold_db=/scratch/DB/bio/qiime/uchime/gold.fa
-sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fastq_pair.list
-```
 ## Tutorial pipeline
 ![Pipeline](images/pipeline.png)
 
@@ -70,6 +52,25 @@ qsub: job 1598565.srvslshpc001 ready
 
 gerrit@srvslshpc601:~> hostname
 srvslshpc601
+```
+
+## Do some local setup
+
+### Activate software in PATH
+```bash
+source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
+```
+
+Now set some variables. For the `process_dir` set replace `gerrit` with the name that has been given to you in the class
+```bash
+raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
+process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit
+uparse_dir=$process_dir/uparse
+taxonomy_dir=$process_dir/tax
+alignment_dir=$process_dir/align
+greengenes_db=/scratch/DB/bio/qiime/greengenes/gg_13_8_otus
+gold_db=/scratch/DB/bio/qiime/uchime/gold.fa
+sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fastq_pair.list
 ```
 
 ## 1. Lets do some QC on the raw data
