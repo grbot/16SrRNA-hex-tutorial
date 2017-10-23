@@ -61,10 +61,10 @@ srvslshpc601
 source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
 ```
 
-Now set some variables. For the `process_dir` set replace `gerrit` with the name that has been given to you in the class
+Now set some variables. For the `process_dir` set replace `hpc30` with the name that has been given to you in the class
 ```bash
 raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
-process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit
+process_dir=/researchdata/fhgfs/hpc30
 uparse_dir=$process_dir/uparse
 taxonomy_dir=$process_dir/tax
 alignment_dir=$process_dir/align
