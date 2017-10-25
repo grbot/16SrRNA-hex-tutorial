@@ -111,7 +111,7 @@ length(intersect(rownames(meta),sample_names(phy)))#15 (check that the sample na
 sample_data(phy) <- meta#assign the metadata to the phyloseq object 'phy' (phyloseq will put these in the right order)
 nsamples(phy)
 str(sample_data(phy))#need to change treatment column to factor variable
-sample_data(phy)[,"Treatment"] <- as.numeric(unlist(sample_data(phy)[,"Treatment"]))
+sample_data(phy)[,"Treatment"] <- as.factor(unlist(sample_data(phy)[,"Treatment"]))
 ```
 **Save phyloseq object as an .RData file**
 
