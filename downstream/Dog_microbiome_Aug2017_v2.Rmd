@@ -35,6 +35,13 @@ srvslshpc601
 
 ````
 
+Make an output directory for R downstream analyses
+---------------------------------------------------
+**NB - replace hpc30 with your user account**
+```{r, echo=TRUE}
+mkdir /researchdata/fhgfs/hpc30/R_downstream
+```
+
 Load the R environment required
 -------------------------------
 
@@ -66,17 +73,18 @@ library(dplyr)
 source("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/microbiome_custom_functions.R")
 ```
 **Set the working directory and import data**
+**NB replace hpc30 with the name that has been given to you in the class**
 
 ```{r, echo=TRUE}
-setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
+setwd("/researchdata/fhgfs/hpc30/")
 inDir <- getwd()#specify input directory
-outDir <- paste0(getwd(),"/results/downstream_analyses") #specify output directory
-phy <- import_biom(BIOMfilename = paste0(inDir,"/results/otus_table.tax.biom"), 
+outDir <- paste0(getwd(),"/R_downstream") #specify output directory
+phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
 		verbose = TRUE)#
 ntaxa(phy) #(number of OTUs)
 sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
 #add phylogenetic tree (.tre file generated in QIIME)
-tree <- read_tree_greengenes(paste0(inDir,"/results/otus_repsetOUT_aligned_pfiltered.tre"))
+tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
 #merge phy and tree
 phy <- merge_phyloseq(phy,tree)
 ```
@@ -128,8 +136,12 @@ length(which(reads<5000))
 
 raremax <- min(reads)
 raremax
-rarecurve(t(otu_table(phy)), step = 100, sample = raremax,xlab = "number of reads/sample", ylab = "number of OTUs",
+r=rarecurve(t(otu_table(phy)), step = 100, sample = raremax,xlab = "number of reads/sample", ylab = "number of OTUs",
 		label = FALSE, xlim = c(0,100000))
+		
+pdf(paste0(outDir,"/rarefaction_curve.pdf"))
+r
+dev.off()
 ```
 
 All samples have sufficient sequencing depth for inclusion in downstream analyses. The vertical line in the above plot indicates the sample with the lowest number of reads. Now we will scale data to account for differences in the number of reads/sample and filter rare OTUs that are not of biological interest for the purpose of this analysis (e.g. occurs only in one sample).
@@ -155,7 +167,7 @@ ntaxa(M.f)
 p <- plot_richness(M.std,x = "Dog",color = "Treatment",measures=c("Shannon"), 
 		title = paste0("Standardized to total reads, N=",nsamples(M.std)))+theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=16,face="bold"))+geom_point(size=5)
-p
+
 pdf(paste0(outDir,"/alpha_diversity_by_dog_treatment.pdf"))
 p
 dev.off()
@@ -176,7 +188,7 @@ Dog G has higher alpha diversity than dogs K and B irrespective of treatment, bu
 p <- plot_richness(M.std,x = "Treatment",color = "Dog",measures=c("Shannon"), 
 				title = paste0("Standardized to total reads, N=",nsamples(M.std)))+theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=16,face="bold"))+geom_point(size=5)
-p
+
 pdf(paste0(outDir,"/alpha_diversity_by_treatment_dog.pdf"))
 p
 dev.off()
@@ -204,7 +216,6 @@ MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color, shape=shape)+geom_point(size=5)
 
-MDS.1
 pdf(paste0(outDir,"/NMDS_Dogs_tretment_Bray_Curtis.pdf"),8,5)
 MDS.1
 dev.off()
@@ -223,7 +234,7 @@ MDS = plot_ordination(M.f, GP.ord.U, color = color, shape=shape,
 MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color)+geom_point(size=5)
-MDS.1
+
 pdf(paste0(outDir,"/NMDS_Dogs_tretment_Bray_Curtis.pdf"),8,5)
 MDS.1
 dev.off()
