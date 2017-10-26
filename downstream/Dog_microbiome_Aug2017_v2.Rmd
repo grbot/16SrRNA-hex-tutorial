@@ -216,7 +216,7 @@ MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color, shape=shape)+geom_point(size=5)
 
-pdf(paste0(outDir,"/NMDS_Dogs_tretment_Bray_Curtis.pdf"),8,5)
+pdf(paste0(outDir,"/NMDS_Dogs_treatment_Bray_Curtis.pdf"),8,5)
 MDS.1
 dev.off()
 ```
@@ -235,7 +235,7 @@ MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color)+geom_point(size=5)
 
-pdf(paste0(outDir,"/NMDS_Dogs_tretment_Bray_Curtis.pdf"),8,5)
+pdf(paste0(outDir,"/NMDS_Dogs_treatment_Unifrac.pdf"),8,5)
 MDS.1
 dev.off()
 ```
