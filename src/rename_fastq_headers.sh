@@ -7,8 +7,10 @@
 # $5 = rv_read_renamed
 
 if [ -z "$TMPDIR" ]; then
-    TMPDIR=/tmp
+    TMPDIR=/tmp/`whoami`
 fi
+
+mkdir $TMPDIR
 
 echo $1
 echo $2
