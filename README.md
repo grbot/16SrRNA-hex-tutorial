@@ -41,7 +41,7 @@ Dog31 | K | 1 | 150613 | 150613
 
 ### To get to a compute node do
 ```bash
-qsub -I -q UCTlong -l walltime=04:00:00
+qsub -I -q UCTlong -l walltime=08:00:00
 ```
 Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
 
