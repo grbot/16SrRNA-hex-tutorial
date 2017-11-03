@@ -46,7 +46,7 @@ qsub -I -q UCTlong -l walltime=08:00:00
 Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
 
 ```bash
-gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=04:00:00
+gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=08:00:00
 qsub: waiting for job 1598565.srvslshpc001 to start
 qsub: job 1598565.srvslshpc001 ready
 
