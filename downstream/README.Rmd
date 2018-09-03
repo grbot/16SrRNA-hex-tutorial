@@ -253,7 +253,9 @@ colours = list(Dog=D.cols)
 
 #create distance matrix and calculate tree:
 set.seed(2)
-diss <- distance(M.phy,method = "bray", type = "samples")
+#diss <- distance(M.phy,method = "bray", type = "samples")#replace this code due to bug in package vegan:
+otu_table <- t(data.frame(otu_table(M.phy)))#Transpose OTU table
+diss<- vegdist(otu_table, method = "bray")#Then use vegdist from vegan to generate a bray distance object:
 clust.res<-hclust(diss)
 sample.order = clust.res$order
 #heatmap is output to file (the heatmap.k function can be found in the 'microbiome_custom_functions.R' script)
