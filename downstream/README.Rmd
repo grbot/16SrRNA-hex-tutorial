@@ -295,7 +295,7 @@ sub.index <- sample_names(M.f)[sample_data(M.f)[,"Dog"] != "K"]
 phy.temp <- prune_samples(sub.index, M.f)
 nsamples(phy.temp)
 
-RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3)
+RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, positive.class = "G")
 ```
 
 The class error rates are 0% (even one OTU enough to discriminate between Dog G and B?)
@@ -303,7 +303,7 @@ The class error rates are 0% (even one OTU enough to discriminate between Dog G 
 What if we used merged OTUs?
 ```{r, echo=TRUE, message=FALSE}
 merged.phy <- tax_glom.kv(phy.temp)
-RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs") #for details on RF.k() see microbiome_custom_functions.R file
+RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs",positive.class = "G") #for details on RF.k() see microbiome_custom_functions.R file
 #Note that Nfeatures.validation: 'x' number of top taxa to test (e.g. how good are the top 3 most important taxa at classifying)
 ```
 **Differential abundance testing using MetagenomeSeq package**
