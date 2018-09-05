@@ -29,24 +29,6 @@ Dog31 | K | 1 | 150613 | 150613
 * Run a 16S analysis pipeline from raw reads up to OTU classification and alignment.
 * Once done with this tutorial you can continue with the [R downstream analysis tutorial](https://github.com/grbot/16SrRNA-hex-tutorial/tree/master/downstream) using the data generated in this tutorial.
 
-## Do some local setup
-
-### Activate software in PATH
-```bash
-source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
-```
-
-Now set some variables. For the `process_dir` set replace `gerrit` with the name that has been given to you in the class
-```bash
-raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
-process_dir=/researchdata/fhgfs/cbio/cbio/courses/IBS5003Z/16SrRNA/gerrit
-uparse_dir=$process_dir/uparse
-taxonomy_dir=$process_dir/tax
-alignment_dir=$process_dir/align
-greengenes_db=/scratch/DB/bio/qiime/greengenes/gg_13_8_otus
-gold_db=/scratch/DB/bio/qiime/uchime/gold.fa
-sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fastq_pair.list
-```
 ## Tutorial pipeline
 ![Pipeline](images/pipeline.png)
 
@@ -59,17 +41,36 @@ sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fa
 
 ### To get to a compute node do
 ```bash
-qsub -I -q UCTlong -l walltime=04:00:00
+qsub -I -q UCTlong -l walltime=08:00:00
 ```
 Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
 
 ```bash
-gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=04:00:00
+gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=08:00:00
 qsub: waiting for job 1598565.srvslshpc001 to start
 qsub: job 1598565.srvslshpc001 ready
 
 gerrit@srvslshpc601:~> hostname
 srvslshpc601
+```
+
+## Do some local setup
+
+### Activate software in PATH
+```bash
+source /scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/config/activate_soft.sh
+```
+
+Now set some variables. For the `process_dir` set replace `hpc30` with the name that has been given to you in the class
+```bash
+raw_reads_dir=/scratch/DB/bio/training/16SrRNA/dog_stool_samples
+process_dir=/researchdata/fhgfs/hpc30
+uparse_dir=$process_dir/uparse
+taxonomy_dir=$process_dir/tax
+alignment_dir=$process_dir/align
+greengenes_db=/scratch/DB/bio/qiime/greengenes/gg_13_8_otus
+gold_db=/scratch/DB/bio/qiime/uchime/gold.fa
+sid_fastq_pair_list=/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/sid.fastq_pair.list
 ```
 
 ## 1. Lets do some QC on the raw data
@@ -78,7 +79,7 @@ srvslshpc601
 ```bash
 fastqc_dir=$process_dir/fastqc
 mkdir $fastqc_dir
-fastqc --extract -f fastq -o $fastqc_dir -t 6 $raw_reads_dir/*
+fastqc --extract -f fastq -o $fastqc_dir -t 1 $raw_reads_dir/*
 ```
 ### 1.2 Combine FastQC reports
 ```bash
@@ -119,7 +120,7 @@ This will take about 1 minute to run. Lets do a read count on the filtered fastq
 ```bash
 filtered_fastqc_dir=$uparse_dir"/filtered.fastqc"
 mkdir $filtered_fastqc_dir
-fastqc --extract -f fastq -o $uparse_dir"/filtered.fastqc" -t 6 $filtered_dir/*.fastq
+fastqc --extract -f fastq -o $uparse_dir"/filtered.fastqc" -t 1 $filtered_dir/*.fastq
 ```
 This will take about 2 minutes to run.
 

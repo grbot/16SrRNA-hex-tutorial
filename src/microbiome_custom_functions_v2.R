@@ -542,7 +542,7 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 #FileName = specify comparison made, not full file path (e.g. "M.prune_PICRUSt_groups_C_vs_A")
 #p = adjusted p-value threshold to use when filtering significant results.
 #default p=0.05
-#perc = threshold for filtering by fraction of +ve ssamples for a given OTU in either group (e.g perc = 0.3 will keep only OTUs where at least one of the two groups have ³ 30% of samples +ve for that OTU) 
+#perc = threshold for filtering by fraction of +ve ssamples for a given OTU in either group (e.g perc = 0.3 will keep only OTUs where at least one of the two groups have ? 30% of samples +ve for that OTU) 
 #default perc = 0.5
 #FC = absolute coefficient threshold to use for filtering (default = 1.5)
 #main = title of heatmap
@@ -556,7 +556,7 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 
 #--------------------------------------------------
 #The function RF.k performs random forests analysis on the otu table of a supplied phyloseq object.
-#NB: this function is only setup for categorical response variables NOT regression on continuous response variables
+#NB: this function is only setup for two-class categorical response variables NOT regression on continuous response variables
 #The data is randomly divided into a training (two thirds of the data) and test set (remaining one third of the data not used for training)
 #results printed to screen include most important taxa, AUC, PPV, NPV
 #Option to specify the top 'x' taxa to see how they perform
@@ -572,199 +572,211 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 #testAndtrain: should the dataset be divided into training (randomly select two thirds of the data) and test sets (the remaining one third of the data)
 #testAndtrain valid options: TRUE | FALSE
 #descriptor: any additional description that needs to go in the file name (e.g. 'merged_otus')
-RF.k <- function(data, seed = 212,var, ntree=500, mtry=if (!is.null(y) && !is.factor(y))
-					max(floor(ncol(x)/3), 1) else floor(sqrt(ncol(x))), cv.fold=3, outDir,Nfeatures.validation=NULL, testAndtrain=FALSE,descriptor = c(),...){#function default values supplied, change as required
-	
-	summary_file <- paste0(outDir,"/RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
-	write(print(paste(length(which(is.na(sample_data(data)[,var]))),"samples did not have response variable data, removing these...")), 
-			file = summary_file,sep = "\t")
-	sub.index <- which(!is.na(sample_data(data)[,var]))#
-	data <- prune_samples(sample_names(data)[sub.index],data)
-	if(testAndtrain==TRUE){
-		table = otu_table(data)
-		train.n = round(2/3*nsamples(data))
-		#generate random integers between 1 and nsamples(phy.temp)
-		set.seed(seed)
-		random = sample(1:nsamples(data), train.n)
-		train = table[,random]
-		test = table[,-random]
-		tbl <- table(sample_data(data)[colnames(train),var])
-		write(print(paste("Training set size: ",dim(train)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
-				file = summary_file,sep = "\t", append=T)
-		tbl <- table(sample_data(data)[colnames(test),var])
-		write(print(paste("Test set size: ",dim(test)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")),
-				file = summary_file,sep = "\t", append=T)
-		#TRAINING - RANDOMLY SELECT 2/3 OF DATASET
-		# Make a dataframe of training data with OTUs as column and samples as rows
-		predictors <- t(train)
-		predictors = data.frame(predictors)
-		#------------------
-		# Make one column for our outcome/response variable 
-		response <- as.factor(unlist(sample_data(data)[random,var]))
-		names(response) <- sample_names(data)[random]
-	}
-	else if(testAndtrain==FALSE){
-		table = otu_table(data)
-		tbl <- table(sample_data(data)[,var])
-		write(print(paste("Data set size: ",tbl[1]+tbl[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
-				file = summary_file,sep = "\t", append=T)
-		# Make a dataframe of training data with OTUs as column and samples as rows
-		predictors <- t(table)
-		predictors = data.frame(predictors)
-		#------------------
-		# Make one column for our outcome/response variable 
-		response <- as.factor(unlist(sample_data(data)[,var]))
-		names(response) <- sample_names(data)
-	}
-
-	#------------------------------------
-	#BUILD RF MODEL
-	# Combine them into 1 data frame
-	rf.data <- data.frame(response, predictors)
-	head(rf.data)
-	set.seed(2)
-	classify <- randomForest(response~ ., data = rf.data, importance=T, proximity=T,ntree = 10000, na.action=na.omit)
-	classify
-	sink(summary_file,append=T)
-	print(classify)
-	sink()
-	#------------------------------------------
-	#RF CV for feature selection:
-	rf.cv = rfcv(rf.data[,2:dim(rf.data)[2]], rf.data[,1], cv.fold=cv.fold)
-	write(print("Cross-validated error rates associated with stepwise reduction of features:"),file = summary_file,sep = "\t", append=T)
-	print(rf.cv$error.cv)
-	sink(summary_file, append=T)
-	print(rf.cv$error.cv)
-	sink()
-	pdf(paste0(outDir,"/RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
-	with(rf.cv, plot(n.var, error.cv, log="x", type="o", lwd=2))
-	dev.off()
-	#----------------------------------
-	# Make a data frame with predictor names and their importance
-	imp <- importance(classify)
-	imp <- data.frame(predictors = rownames(imp), imp)
-	# Order the predictor levels by importance
-	imp.sort <- arrange(imp, desc(MeanDecreaseGini))
-	imp.sort$predictors <- factor(imp.sort$predictors, levels = imp.sort$predictors)
-	# Select the top 20 predictors
-	imp.20 <- imp.sort[1:20, ]
-	#add taxonomy info
-	rownames(imp.20) = imp.20[,1]
-	labs = tax.lab(imp.20, data, labrow=TRUE,merged=FALSE)
-	#head(labs)
-	#rownames(imp.20) = labs
-	#head(imp.20)
-	imp.20$tax = labs
-	imp.20$tax = factor(imp.20$tax, levels = imp.20$tax)#avoid ggplot sorting alphabetically\
-	write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-	write(print("THE TOP 20 MOST IMPORTANT FEATURES WERE:"),file = summary_file,sep = "\t", append=T)
-	print(imp.20)
-	sink(summary_file, append=T)
-	print(imp.20)
-	sink()
-	write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-	p <- ggplot(imp.20,aes(x = imp.20[,"tax"], y = imp.20[,"MeanDecreaseGini"]),environment = environment())+
-			geom_bar(stat = "identity", fill = "grey") +
-			coord_flip() +
-			ggtitle(paste("Most important taxa for classifying samples by ",var))+
-			theme_bw() + 
-			theme(panel.background = element_blank(), 
-					panel.grid.major = element_blank(),  #remove major-grid labels
-					panel.grid.minor = element_blank(),  #remove minor-grid labels
-					plot.background = element_blank())
-	pdf(paste0(outDir, "/RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
-	print(p)
-	dev.off()
-	#------------------------------------
-	#------------------------------------
-	# Calculate ROC AUC
-	predictions = as.vector(classify$votes[,2])
-	pred1 = prediction(predictions, classify$y)#
-	auc1 = performance(pred1, 'auc')
-	#------------------------------------
-	#Calculate AUC, PPV, NPV
-	write(print(paste0("Training AUC=",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
-	# Calculate predictive value of classifier
-	confusion1 = classify$confusion[c(2,1),c(2,1)]
-	ppv1 = ((confusion1[1,1])/(confusion1[1,1]+confusion1[2,1]))
-	write(print(paste0("Training PPV=",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
-	npv1 = ((confusion1[2,2])/(confusion1[1,2]+confusion1[2,2]))
-	write(print(paste0("Training NPV=",round(npv1,2))),file = summary_file,sep = "\t", append=T)
-	# Plot ROC AUC for classifier 
-	pdf(paste0(outDir,"/RFs_",var,"_variable_ROC_curve_training_set_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
-	perf1 = performance(pred1, 'tpr','fpr')
-	plot(perf1, main='ROC Curve taxa predictors, training set', col='red', lwd=2)
-	text(0.5,0.5,paste('AUC = ',format(auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',
-					format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
-	dev.off()
-	#SEE HOW THE TOP X NUMBER OF FEATURES DO - SPECIFY IN 'Nfeatures.validation' PARAMETER
-	if(length(Nfeatures.validation)!=0){
-		#sort by mean decrease in Gini index and select top 'x'
-		goodPredictors = rownames(classify$importance)[order(classify$importance[,4],decreasing=T)][1:Nfeatures.validation]
-		rf.x = randomForest(response ~ .,data=rf.data[,c(goodPredictors,"response")],importance=T,proximity=T,ntree = ntree, na.action=na.omit)#~. include all variables
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),summary_file,sep = "\t", append=T)
-		write(print(paste("Feature(s) selected:",goodPredictors)),file = summary_file,sep = "\t", append=T)
-		print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
-		sink(summary_file, append=T)
-		print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
-		sink()
-		#write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),file = paste0(outDir,"RF",var,"results.txt"),sep = "\t", append=T)
-		print(rf.x)
-		sink(summary_file, append=T)
-		print(rf.x)
-		sink()
-	}
-	if(testAndtrain==TRUE){
-		#---------------------------------------
-		#NOW TEST CLASSIFIER IN TEST COHORT (I.E. REMAINING 1/3 OF DATASET) USING THE TOP X FEATURES
-		#---------------------------------------
-		if(length(Nfeatures.validation)!=0){
-			rf.test = rf.x
-		}
-		else{rf.test = classify}
-		predictors <- t(test)#now use test set
-		response <- as.factor(unlist(sample_data(data)[-random,var]))
-		names(response) <- sample_names(data)[-random]
-		test.data <- data.frame(response, predictors)	
-		# Getting predictions for testing hold-out data
-		validation.resp1 = predict(rf.test, test.data, type='response')
-		validation.vote1 = predict(rf.test, test.data, type='vote')
-		# Create confusion matrix
-		confusion1 = table(data.frame(cbind(Actual=response,Predicted=validation.resp1)))
-		class.labels = levels(as.factor(unlist(sample_data(data)[,var])))
-		rownames(confusion1) = c(class.labels[1],class.labels[2])
-		colnames(confusion1) = c(class.labels[1],class.labels[2])
-		ro1 = c(class.labels[1],class.labels[2])
-		#predicted error
-		err1 = ((confusion1[1,2]+confusion1[2,1])/sum(confusion1))
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print("moving to TEST set (1/3 of data)"),file = summary_file,sep = "\t", append=T)
-		if(length(Nfeatures.validation)!=0){
-			write(print(paste("using the top",Nfeatures.validation,"features")),file = summary_file,sep = "\t", append=T)
-		}
-		else{write(print("using all features"),file = summary_file,sep = "\t", append=T)
-		}
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print(paste0("Validation predicted error: ",round(err1*100,2),"%")),file = summary_file,sep = "\t", append=T)
-		#--------------------------
-		# Calculate ROC AUC for testing set
-		validation.predictions = as.vector(validation.vote1[,2])
-		validation.pred1 = prediction(validation.predictions, response)
-		validation.auc1 = performance(validation.pred1, 'auc')
-		write(print(paste0("Test set AUC=",round(auc1@y.values[[1]],2))),summary_file,sep = "\t", append=T)
-		ppv1 = ((confusion1[1,1])/(confusion1[1,1]+confusion1[2,1]))
-		write(print(paste0("Test set PPV=",round(ppv1,2))),summary_file,sep = "\t", append=T)
-		npv1 = ((confusion1[2,2])/(confusion1[1,2]+confusion1[2,2]))
-		write(print(paste0("Test set NPV=",round(npv1,2))),summary_file,sep = "\t", append=T)
-		#------------------------------------
-		pdf(paste0(outDir,'/RFs_',var,'_validation.taxa_',ntree,"_", cv.fold, "_",Nfeatures.validation,"_",seed,descriptor,'_ROC_curve.pdf'))
-		validation.perf1 = performance(validation.pred1, 'tpr','fpr')
-		plot(validation.perf1, main='ROC Curve taxa predictors, test set', col='blue', lwd=2)
-		text(0.5,0.5,paste('AUC = ',format(validation.auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
-		dev.off()
-	}
+#np: number of top features to display in table and variable importance plot
+#positive.class: the positive class needs to be specified - this should match one of the levels() under 'var' of interest e.g:
+#for the variable "TB status" the positive class might be "TBpos" - this is used to calculate PPV, NPV
+RF.k <- function(data, seed = 2,var, ntree=500, mtry=if (!is.null(y) && !is.factor(y))
+  max(floor(ncol(x)/3), 1) else floor(sqrt(ncol(x))), cv.fold=3, outDir,Nfeatures.validation=NULL, testAndtrain=FALSE,np=50,
+  positive.class,descriptor = c(),...){#function default values supplied, change as required
+  
+  summary_file <- paste0(outDir,"/RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
+  write(print(paste(length(which(is.na(sample_data(data)[,var]))),"samples did not have response variable data, removing these...")), 
+        file = summary_file,sep = "\t")
+  sub.index <- which(!is.na(sample_data(data)[,var]))#
+  data <- prune_samples(sample_names(data)[sub.index],data)
+  if(testAndtrain==TRUE){
+    table = otu_table(data)
+    train.n = round(2/3*nsamples(data))
+    #generate random integers between 1 and nsamples(phy.temp)
+    set.seed(seed)
+    random = sample(1:nsamples(data), train.n)
+    train = table[,random]
+    test = table[,-random]
+    tbl <- table(sample_data(data)[colnames(train),var])
+    write(print(paste("Training set size: ",dim(train)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
+          file = summary_file,sep = "\t", append=T)
+    tbl <- table(sample_data(data)[colnames(test),var])
+    write(print(paste("Test set size: ",dim(test)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")),
+          file = summary_file,sep = "\t", append=T)
+    #TRAINING - RANDOMLY SELECT 2/3 OF DATASET
+    # Make a dataframe of training data with OTUs as column and samples as rows
+    predictors <- t(train)
+    predictors = data.frame(predictors)
+    #------------------
+    # Make one column for our outcome/response variable 
+    response <- as.factor(unlist(sample_data(data)[random,var]))
+    names(response) <- sample_names(data)[random]
+  }
+  else if(testAndtrain==FALSE){
+    table = otu_table(data)
+    tbl <- table(sample_data(data)[,var])
+    write(print(paste("Data set size: ",tbl[1]+tbl[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
+          file = summary_file,sep = "\t", append=T)
+    # Make a dataframe of training data with OTUs as column and samples as rows
+    predictors <- t(table)
+    predictors = data.frame(predictors)
+    #------------------
+    # Make one column for our outcome/response variable 
+    response <- as.factor(unlist(sample_data(data)[,var]))
+    names(response) <- sample_names(data)
+  }
+  
+  #------------------------------------
+  #BUILD RF MODEL
+  # Combine them into 1 data frame
+  rf.data <- data.frame(response, predictors)
+  head(rf.data)
+  set.seed(seed)
+  classify <- randomForest(response~ ., data = rf.data, importance=T, proximity=T,ntree = ntree, na.action=na.omit)
+  classify
+  sink(summary_file,append=T)
+  print(classify)
+  sink()
+  #------------------------------------------
+  #RF CV for feature selection:
+  rf.cv = rfcv(rf.data[,2:dim(rf.data)[2]], rf.data[,1], cv.fold=cv.fold)
+  write(print("Cross-validated error rates associated with stepwise reduction of features:"),file = summary_file,sep = "\t", append=T)
+  print(rf.cv$error.cv)
+  sink(summary_file, append=T)
+  print(rf.cv$error.cv)
+  sink()
+  pdf(paste0(outDir,"/RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
+  with(rf.cv, plot(n.var, error.cv, log="x", type="o", lwd=2))
+  dev.off()
+  #----------------------------------
+  # Make a data frame with predictor names and their importance
+  imp <- importance(classify)
+  imp <- data.frame(predictors = rownames(imp), imp)
+  # Order the predictor levels by importance
+  imp.sort <- arrange(imp, desc(MeanDecreaseGini))
+  imp.sort$predictors <- factor(imp.sort$predictors, levels = imp.sort$predictors)
+  # Select the top n predictors
+  imp.n <- imp.sort[1:np, ]
+  #add taxonomy info
+  rownames(imp.n) = imp.n[,1]
+  labs = tax.lab(imp.n, data, labrow=TRUE,merged=FALSE)
+  imp.n$tax = labs
+  imp.n$tax = factor(imp.n$tax, levels = imp.n$tax)#avoid ggplot sorting alphabetically\
+  write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+  write(print(paste("THE TOP",np," MOST IMPORTANT FEATURES WERE:")),file = summary_file,sep = "\t", append=T)
+  print(imp.n)
+  sink(summary_file, append=T)
+  print(imp.n)
+  sink()
+  write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+  p <- ggplot(imp.n,aes(x = imp.n[,"tax"], y = imp.n[,"MeanDecreaseGini"]),environment = environment())+
+    geom_bar(stat = "identity", fill = "grey") +
+    coord_flip() +
+    ggtitle(paste("Most important taxa for classifying samples by ",var))+
+    theme_bw() + 
+    theme(panel.background = element_blank(), 
+          panel.grid.major = element_blank(),  #remove major-grid labels
+          panel.grid.minor = element_blank(),  #remove minor-grid labels
+          plot.background = element_blank())
+  pdf(paste0(outDir, "/RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
+  print(p)
+  dev.off()
+  #------------------------------------
+  #------------------------------------
+  # Calculate ROC AUC
+  predictions = as.vector(classify$votes[,2])#by default R takes class on right as +ve (alphabetical sorting),this is fine for now
+  pred1 = prediction(predictions, labels=classify$y)#where labels contain true class labels
+  auc1 = performance(pred1, 'auc')
+  #------------------------------------
+  #Calculate AUC, PPV, NPV
+  write(print(paste0("Training AUC=",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
+  # Calculate predictive value of classifier
+  confusion1 = classify$confusion
+  neg.class=which(levels(response)!=positive.class)#is the positive class currently the first or second factor (usually alphabetical)
+  negative.class=levels(response)[neg.class]
+  stopifnot(length(negative.class)==1)
+  ppv1 = 1-confusion1[positive.class,3]#1- the class error already calculated
+  write(print(paste0("Training PPV=",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
+  npv1 = 1-confusion1[negative.class,3]#1- the class error already calculated
+  write(print(paste0("Training NPV=",round(npv1,2))),file = summary_file,sep = "\t", append=T)
+  # Plot ROC AUC for classifier 
+  pdf(paste0(outDir,"/RFs_",var,"_variable_ROC_curve_training_set_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
+  perf1 = performance(pred1, 'tpr','fpr')
+  plot(perf1, main='ROC Curve taxa predictors, training set', col='red', lwd=2)
+  text(0.5,0.5,paste('AUC = ',format(auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',
+                     format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
+  dev.off()
+  #SEE HOW THE TOP X NUMBER OF FEATURES DO - SPECIFY IN 'Nfeatures.validation' PARAMETER
+  if(length(Nfeatures.validation)!=0){
+    #sort by mean decrease in Gini index and select top 'x'
+    goodPredictors = rownames(classify$importance)[order(classify$importance[,4],decreasing=T)][1:Nfeatures.validation]
+    rf.x = randomForest(response ~ .,data=rf.data[,c(goodPredictors,"response")],importance=T,proximity=T,ntree = ntree, na.action=na.omit)#~. include all variables
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),summary_file,sep = "\t", append=T)
+    write(print(paste("Feature(s) selected:",goodPredictors)),file = summary_file,sep = "\t", append=T)
+    print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
+    sink(summary_file, append=T)
+    print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
+    sink()
+    print(rf.x)
+    sink(summary_file, append=T)
+    print(rf.x)
+    sink()
+    #write AUC, PPV, NPV to file for using the top x features in the tRAINING set
+    predictions = as.vector(rf.x$votes[,2])#by default R takes class on right as +ve (alphabetical sorting),this is fine for now
+    pred1 = prediction(predictions, labels=rf.x$y)#where labels contain true class labels
+    auc1 = performance(pred1, 'auc')
+    write(print(paste0("Training AUC if only using top ",Nfeatures.validation," features",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
+    # Calculate predictive value of classifier
+    confusion1 = rf.x$confusion
+    ppv1 = 1-confusion1[positive.class,3]#1- the class error already calculated
+    write(print(paste0("Training PPV if using the top ",Nfeatures.validation," features",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
+    npv1 = 1-confusion1[negative.class,3]#1- the class error already calculated
+    write(print(paste0("Training NPV if using the top ",Nfeatures.validation," features",round(npv1,2))),file = summary_file,sep = "\t", append=T)
+  }
+  if(testAndtrain==TRUE){
+    #---------------------------------------
+    #NOW TEST CLASSIFIER IN TEST COHORT (I.E. REMAINING 1/3 OF DATASET) USING THE TOP X FEATURES
+    #---------------------------------------
+    if(length(Nfeatures.validation)!=0){
+      rf.test = rf.x
+    }
+    else{rf.test = classify}
+    predictors <- t(test)#now use test set
+    response <- as.factor(unlist(sample_data(data)[-random,var]))
+    names(response) <- sample_names(data)[-random]
+    test.data <- data.frame(response, predictors)	
+    # Getting predictions for testing hold-out data
+    validation.resp2 = predict(rf.test, test.data, type='response')#class predictions
+    validation.vote2 = predict(rf.test, test.data, type='vote')#vote percentages for two classes
+    # Create confusion matrix
+    confusion2 = table(data.frame(cbind(Actual=response,Predicted=validation.resp2)))
+    class.labels = levels(as.factor(unlist(sample_data(data)[,var])))
+    rownames(confusion2) = c(class.labels[1],class.labels[2])
+    colnames(confusion2) = c(class.labels[1],class.labels[2])
+    #predicted error
+    err2 = ((confusion2[1,2]+confusion2[2,1])/sum(confusion2))
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print("moving to TEST set (1/3 of data)"),file = summary_file,sep = "\t", append=T)
+    if(length(Nfeatures.validation)!=0){
+      write(print(paste("using the top",Nfeatures.validation,"features")),file = summary_file,sep = "\t", append=T)
+    }
+    else{write(print("using all features"),file = summary_file,sep = "\t", append=T)
+    }
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print(paste0("Validation predicted error: ",round(err2*100,2),"%")),file = summary_file,sep = "\t", append=T)
+    #--------------------------
+    # Calculate ROC AUC for testing set
+    validation.predictions = as.vector(validation.vote2[,2])
+    validation.pred2 = prediction(validation.predictions, response)
+    validation.auc2 = performance(validation.pred2, 'auc')
+    write(print(paste0("Test set AUC=",round(validation.auc2@y.values[[1]],2))),summary_file,sep = "\t", append=T)
+    ppv2 = ((confusion2[positive.class,positive.class])/(confusion2[positive.class,positive.class]+confusion2[positive.class,negative.class]))
+    write(print(paste0("Test set PPV=",round(ppv2,2))),summary_file,sep = "\t", append=T)
+    npv2 = ((confusion2[negative.class,negative.class])/(confusion2[negative.class,negative.class]+confusion2[negative.class,positive.class]))
+    write(print(paste0("Test set NPV=",round(npv2,2))),summary_file,sep = "\t", append=T)
+    #------------------------------------
+    pdf(paste0(outDir,'/RFs_',var,'_validation.taxa_',ntree,"_", cv.fold, "_",Nfeatures.validation,"_",seed,descriptor,'_ROC_curve.pdf'))
+    validation.perf2 = performance(validation.pred2, 'tpr','fpr')
+    plot(validation.perf2, main='ROC Curve taxa predictors, test set', col='blue', lwd=2)
+    text(0.5,0.5,paste('AUC = ',format(validation.auc2@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',format(ppv2,digits=5,scientific=FALSE),'\nNPV = ',format(npv2,digits=5,scientific=FALSE)),cex=2)
+    dev.off()
+  }
 }
-
 #////////////////////////////////
 #///////////////////////////////////////

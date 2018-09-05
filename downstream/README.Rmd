@@ -1,58 +1,101 @@
----
-title: "R downtream analysis of dog stool samples"
-author: "Katie Lennard and Gerrit Botha"
-date: "28 March 2017"
-output: md_document
----
+DOG MICROBIOME BASIC ANALYSES
+================================
 Background
--------------------------------------------
-There are three dogs which are treated with increased percentage of a compound in their diet: 5 different treatments (0-4, representing an increased percentage of a compound in their diet)
-Analyses included here:
+----------
 
-* Import .biom and .tre files generated in QIIME as well as metadata file: merge these objects in a phyloseq object
-* Basic data filter: assess number of reads/sample, plot rarefaction curves, and exclude low abundance OTUs and samples that do not meet minimum number of reads cutoff.
-* Basic exploratory plots including bar plots, alpha- and beta-diversity, heatmaps.
-* Differential abundance testing by a) Dog and b) Treatment
+There are three dogs which are treated with increased percentage of a
+compound in their diet: 5 different treatments (0-4, representing an
+increased percentage of a compound in their diet) Analyses included
+here:
+
+-   Import .biom and .tre files generated in QIIME as well as metadata
+    file: merge these objects in a phyloseq object
+-   Basic data filter: assess number of reads/sample, plot rarefaction
+    curves, and exclude low abundance OTUs and samples that do not meet
+    minimum number of reads cutoff.
+-   Basic exploratory plots including bar plots, alpha- and
+    beta-diversity, heatmaps.
+-   Differential abundance testing by a) Dog and b) Treatment
+
+## This tutorial should be run in an interactive session. Please do not runnning anything on the headnode.
+
+### To get to a compute node do
+```bash
+qsub -I -q UCTlong -l walltime=08:00:00
+```
+Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
+
+```bash
+gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=08:00:00
+qsub: waiting for job 1598565.srvslshpc001 to start
+qsub: job 1598565.srvslshpc001 ready
+
+gerrit@srvslshpc601:~> hostname
+srvslshpc601
+
+````
+
+Make an output directory for R downstream analyses
+---------------------------------------------------
+**NB - replace hpc30 with your user account**
+```bash
+mkdir /researchdata/fhgfs/hpc30/R_downstream
+```
+
+Load the R environment required
+-------------------------------
+```bash
+module load software/R-3.3.0
+```
+Startup R 
+----------------------
+
+enter 'R' into terminal
+
 
 Import data and create phyloseq object
 -------------------------------------------
 
 **Import BIOM file (generated in QIIME) into a phyloseq object**
 
-```{r, echo=TRUE}
+```{r, echo=TRUE,message=FALSE}
 library(phyloseq)
 library(ggplot2)
 library(gridExtra)
 library(dunn.test)
+library(vegan)
+library(randomForest)
+library(dplyr)
 ```
 **Import custom functions used in script**
 
-```{r, echo=TRUE}
-source("/home/gerrit/workspace/amw/src/microbiome_custom_functions.R")
+```{r, echo=TRUE, message=FALSE}
+source("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/microbiome_custom_functions.R")
 ```
 **Set the working directory and import data**
+**NB replace the directory listed below to /researchdata/fhgfs/hpc30, substituting 'hpc30' with the name that has been given to you in the class**
 
-```{r, echo=TRUE}
-setwd("/home/gerrit/scratch/amw")
-inDir <- getwd()
-outDir <- paste0(getwd(),"/downstream") # Specify output directory
+```{r, echo=TRUE, message=FALSE}
+#setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
+#inDir <- getwd()#specify input directory
+inDir <- c("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results/")
+outDir <- paste0(inDir,"/R_downstream") #specify output directory
 phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
 		verbose = TRUE)#
-ntaxa(phy)#(number of OTUs)
+ntaxa(phy) #(number of OTUs)
 sample_names(phy) <- sub("\\/1","",sample_names(phy))#remove "/1" from filenames
-# Add phylogenetic tree (.tre file generated in QIIME)
+#add phylogenetic tree (.tre file generated in QIIME)
 tree <- read_tree_greengenes(paste0(inDir,"/otus_repsetOUT_aligned_pfiltered.tre"))
-# Merge phy and tree
+#merge phy and tree
 phy <- merge_phyloseq(phy,tree)
-
 ```
 **Data cleanup**
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 
 colnames(tax_table(phy))
-colnames(tax_table(phy)) <-  c("Kingdom", "Phylum" , "Class" , "Order" , "Family" , "Genus", "Species")# e.g. Replace "Rank1" with "Kingdom"
-# Clean taxonomic annotations, at the moment they are for example 'k__Bacteria'; 'p_Firmicutes' - remove k__ and p__ ...
+colnames(tax_table(phy)) <-  c("Kingdom", "Phylum" , "Class" , "Order" , "Family" , "Genus", "Species")#e.g. replace "Rank1" with "Kingdom"
+#clean taxonomic annotations, at the moment they are for example 'k__Bacteria'; 'p_Firmicutes' - remove k__ and p__ ...
 tax_table(phy)[,"Kingdom"] <- sub("k__","",tax_table(phy)[,"Kingdom"])
 tax_table(phy)[,"Phylum"] <- sub("p__","",tax_table(phy)[,"Phylum"])
 tax_table(phy)[,"Class"] <- sub("c__","",tax_table(phy)[,"Class"])
@@ -60,15 +103,12 @@ tax_table(phy)[,"Order"] <- sub("o__","",tax_table(phy)[,"Order"])
 tax_table(phy)[,"Family"] <- sub("f__","",tax_table(phy)[,"Family"])
 tax_table(phy)[,"Genus"] <- sub("g__","",tax_table(phy)[,"Genus"])
 tax_table(phy)[,"Species"] <- sub("s__","",tax_table(phy)[,"Species"])
-```
-**Need to filter out unclassified OTUs otherwise custom functions will fail**
-```{r, echo=TRUE}
-t= which(is.na(tax_table(phy)[,"Phylum"]))
-tax_table(phy) = tax_table(phy)[-t,]
+t= which(is.na(tax_table(phy)[,"Phylum"])) 
+tax_table(phy) = tax_table(phy)[-t,] #remove rows that don't at least have Phylum-level annotation
 ```
 **Import metadata and merge with phyloseq object**
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 meta <-  read.table(paste0(inDir,"/practice.dataset1.metadata.tsv"), sep = "\t", header =TRUE, row.names=1)
 head(meta)
 rownames(meta)
@@ -77,33 +117,38 @@ length(sample_names(phy))#15
 length(rownames(meta))#15 (check if same number of samples in .biom file and metadatafile)
 length(intersect(rownames(meta),sample_names(phy)))#15 (check that the sample names match in all cases)
 
-sample_data(phy) <- meta # Assign the metadata to the phyloseq object 'phy' (phyloseq will put these in the right order)
+sample_data(phy) <- meta#assign the metadata to the phyloseq object 'phy' (phyloseq will put these in the right order)
 nsamples(phy)
-str(sample_data(phy)) # Need to change treatment column to factor variable
-sample_data(phy)[,"Treatment"] <- as.numeric(unlist(sample_data(phy)[,"Treatment"]))
+str(sample_data(phy))#need to change treatment column to factor variable
+sample_data(phy)[,"Treatment"] <- as.factor(unlist(sample_data(phy)[,"Treatment"]))
 ```
 **Save phyloseq object as an .RData file**
 
-```{r, echo=TRUE}
-save(phy, file = paste0(outDir,"/dog_stool.RData")) # Save annotated object as a .RData object
-load(paste0(outDir,"/dog_stool.RData"))
+```{r, echo=TRUE, message=FALSE}
+save(phy, file = paste0(outDir,"/CBIO_16s_cert.RData")) #Save annotated object as a .RData object for quick reload if required at a later stage
+#load(paste0(outDir,"/CBIO_16s_cert.RData")) #this is how you would reload the .RData object 'phy'
 ```
 Explore number of reads per sample, make rarefaction curves and filter data as necessary
 -------------------------------------------
 **Explore number of reads per sample**
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 reads <- sample_sums(phy)
 length(which(reads<5000))
 
 raremax <- min(reads)
 raremax
-rarecurve(t(otu_table(phy)), step = 100, sample = raremax,xlab = "number of reads/sample", ylab = "number of OTUs",
+r=rarecurve(t(otu_table(phy)), step = 100, sample = raremax,xlab = "number of reads/sample", ylab = "number of OTUs",
 		label = FALSE, xlim = c(0,100000))
+		
+#pdf(paste0(outDir,"/rarefaction_curve.pdf"))
+#r
+#dev.off()
 ```
 
 All samples have sufficient sequencing depth for inclusion in downstream analyses. The vertical line in the above plot indicates the sample with the lowest number of reads. Now we will scale data to account for differences in the number of reads/sample and filter rare OTUs that are not of biological interest for the purpose of this analysis (e.g. occurs only in one sample).
+
 **Standardize abundances to median sequence depth**
-```{r,echo=TRUE}
+```{r,echo=TRUE, message=FALSE}
 total = median(sample_sums(phy))
 standf = function(x, t=total) round(t * (x / sum(x)))
 M.std = transform_sample_counts(phy, standf)
@@ -111,7 +156,7 @@ M.std = transform_sample_counts(phy, standf)
 **Apply mild OTU filter**
 
 Select OTUs where the rowsum for that OTU has at least 20% of samples with a count of 10 each OR where that OTU > 0.001% of the total median count (for cases where the minority of samples may have high counts of a rare OTU)
-```{r,echo=TRUE}
+```{r,echo=TRUE, message=FALSE}
 M.f = filter_taxa(M.std,function(x) sum(x > 10) > (0.02*length(x)) | sum(x) > 0.001*total, TRUE)
 ntaxa(M.f)
 ```
@@ -119,7 +164,7 @@ ntaxa(M.f)
 -------------------------------------------
 **Alpha diversity by dog**
 
-```{r,echo=TRUE}
+```{r,echo=TRUE, message=FALSE}
 p <- plot_richness(M.std,x = "Dog",color = "Treatment",measures=c("Shannon"), 
 		title = paste0("Standardized to total reads, N=",nsamples(M.std)))+theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=16,face="bold"))+geom_point(size=5)
@@ -129,7 +174,7 @@ p
 dev.off()
 ```
 Is there a significant difference in alpha diversity between dogs irrespective of treatment?
-```{r,echo=TRUE}
+```{r,echo=TRUE, message=FALSE}
 est <- estimate_richness(M.f, split = TRUE, measures = c("Shannon"))
 temp <- cbind(est,sample_data(M.f)[,"Dog"])
 head(temp)
@@ -137,10 +182,10 @@ t <- kruskal.test(temp[,1]~temp[,2])
 t
 dunn.test(temp[,1],temp[,2])#post-hoc testing to see which dogs are different
 ```
-Dog G has significantly higher alpha diversity than dogs K and B irrespective of treatment
+Dog G has higher alpha diversity than dogs K and B irrespective of treatment, but this difference is not significant
 
 **Alpha diversity by treatment**
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 p <- plot_richness(M.std,x = "Treatment",color = "Dog",measures=c("Shannon"), 
 				title = paste0("Standardized to total reads, N=",nsamples(M.std)))+theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=16,face="bold"))+geom_point(size=5)
@@ -150,7 +195,7 @@ p
 dev.off()
 ```
 Are there significant differences in alpha diversity by treatment?
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 temp <- cbind(est,sample_data(M.f)[,"Treatment"])
 head(temp)
 t <- kruskal.test(temp[,1]~temp[,2])
@@ -159,9 +204,10 @@ dunn.test(temp[,1],temp[,2])
 ```
 
 **Beta diversity using NMDS with Bray-Curtis as distance metric**
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 set.seed(2)
-GP.ord.BC <- ordinate(M.f, "NMDS", "bray", k=2, trymax=100) # stress=0.09
+GP.ord.BC <- ordinate(M.f, "NMDS", "bray", k=2, trymax=100)
+GP.ord.BC
 color = c("Treatment")
 shape = c("Dog")
 title=c("NMDS of 16S microbiome,Bray-Curtis distance,k=2")
@@ -170,20 +216,19 @@ MDS = plot_ordination(M.f, GP.ord.BC, color = color,shape=shape,
 MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color, shape=shape)+geom_point(size=5)
-
 MDS.1
-pdf(paste0(outDir,"/NMDS_Dogs_tretment_Bray_Curtis.pdf"),8,5)
+pdf(paste0(outDir,"/NMDS_Dogs_treatment_Bray_Curtis.pdf"),8,5)
 MDS.1
 dev.off()
 ```
 **Beta diversity using NMDS with Unifrac as distance metric**
 ```{r, echo=TRUE, message=FALSE}
-GP.ord.U <- ordinate(M.f, "NMDS", "unifrac")#stress=0.08
-
+GP.ord.U <- ordinate(M.f, "NMDS", "unifrac")
+GP.ord.U
 color = c("Treatment")
 shape = c("Dog")
 
-title=c("NMDS of 16S microbiome, Unifrac distance,k=2")
+title=c("NMDS of 16S microbiome, Unifrac distance, k=2")
 
 MDS = plot_ordination(M.f, GP.ord.U, color = color, shape=shape, 
 		title = title)
@@ -191,37 +236,41 @@ MDS.1  = MDS +theme(axis.text=element_text(size=16, face="bold"),
 				axis.title=element_text(size=18,face="bold"), legend.title=element_text(size=14))+
 		theme_bw()+labs(color=color)+geom_point(size=5)
 MDS.1
-pdf(paste0(outDir,"/NMDS_Dogs_treatment_Bray_Curtis.pdf"),8,5)
+pdf(paste0(outDir,"/NMDS_Dogs_treatment_Unifrac.pdf"),8,5)
 MDS.1
 dev.off()
 ```
 **Create a heatmap of taxa merged at the lowest available taxonomic level**
-```{r,echo=TRUE, warning=FALSE}
-M.phy <- tax_glom.kv(M.f) # This function is available in the 'microbiome_custom_functions.R' script loaded at the beginning of this script
+```{r,echo=TRUE, message=FALSE}
+M.phy <- tax_glom.kv(M.f)#this function is available in the 'microbiome_custom_functions.R' script loaded at the beginning of this script
 ntaxa(M.phy)
-filename <- c("heatmap_merged_taxa")
+filename <- c("cbio_cert_heatmap_merged_taxa")
 main <- paste("Merged taxa, Bray-Curtis distance")
-f = paste0(outDir,filename,".pdf")
-# Color specification for column annotations above heatmap:
+f = paste0(outDir,"/",filename,".pdf")
+#color specification for column annotations above heatmap:
 D.cols = c("B"="#CC79A7","G"="#56B4E9","K"="#F0E442")
 colours = list(Dog=D.cols)
 
-# Create distance matrix and calculate tree:
+#create distance matrix and calculate tree:
 set.seed(2)
-diss <- distance(M.phy,method = "bray", type = "samples")
+#diss <- distance(M.phy,method = "bray", type = "samples")#replace this code due to bug in package vegan:
+otu_table <- t(data.frame(otu_table(M.phy)))#Transpose OTU table
+diss<- vegdist(otu_table, method = "bray")#Then use vegdist from vegan to generate a bray distance object:
 clust.res<-hclust(diss)
 sample.order = clust.res$order
-# Heatmap is output to file (the heatmap.k function can be found in the 'microbiome_custom_functions.R' script)
-hm = heatmap.k(physeq= M.phy, annot.cols = c(1,2), main = main,filename = f,colours=colours,Colv = sample.order,labrow = TRUE, cexCol = 2)	
+#heatmap is output to file (the heatmap.k function can be found in the 'microbiome_custom_functions.R' script)
+hm = heatmap.k(physeq= M.phy,
+		annot.cols = c(1,2),
+		main = main,filename = f,colours=colours,Colv = sample.order,labrow = TRUE)	
 print(hm)
 ```
 **Barplots by dog**
 ------------------------------
-```{r,echo=TRUE}
+```{r,echo=TRUE, message=FALSE}
 level = "Genus"
 count = 500
 perc = 0.25
-# Barplot will be written to file (the bar.plots function can be found in the 'microbiome_custom_functions.R' script)
+#barplot will be written to file (the bar.plots function can be found in the 'microbiome_custom_functions.R' script)
 barplot = bar.plots(physeq = M.std,cat = "Dog",level = level, count = count, perc = perc, outDir=outDir, 
 		filen = 'Barplots_by_Dog')
 print(barplot)
@@ -230,7 +279,7 @@ print(barplot)
 Detect taxa/OTUs that differ significantly by Dog
 -------------------------------------------
 convert phyloseq object to metagenomeSeq obj. NB use raw data not standardized:
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 Mraw.f = filter_taxa(phy,function(x) sum(x > 10) > (0.02*length(x)) | sum(x) > 0.001*total, TRUE)
 ntaxa(Mraw.f)
 MGS=make_metagenomeSeq(Mraw.f)
@@ -241,53 +290,39 @@ MGS
 
 Example used: Dog G vs. Dog B (all treatment points)
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, message=FALSE}
 sub.index <- sample_names(M.f)[sample_data(M.f)[,"Dog"] != "K"]
 phy.temp <- prune_samples(sub.index, M.f)
 nsamples(phy.temp)
-library(randomForest)
-library(dplyr)
-RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3)
+
+RF.k(data = phy.temp, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, positive.class = "G")
 ```
 
 The class error rates are 0% (even one OTU enough to discriminate between Dog G and B?)
 
 What if we used merged OTUs?
-```{r, echo=TRUE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE}
 merged.phy <- tax_glom.kv(phy.temp)
-RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs")
+RF.k(data = merged.phy, var = "Dog", ntree=10000, cv.fold=10, outDir = outDir, Nfeatures.validation = 3, descriptor = "merged_OTUs",positive.class = "G") #for details on RF.k() see microbiome_custom_functions.R file
+#Note that Nfeatures.validation: 'x' number of top taxa to test (e.g. how good are the top 3 most important taxa at classifying)
 ```
 **Differential abundance testing using MetagenomeSeq package**
 
-Lets again compare dog G vs. dog B (merged taxa)
+Lets again compare dog G vs. dog B (merged taxa), this time using differential abundance testing
 
-```{r, echo=TRUE, warning=FALSE}
+```{r, echo=TRUE, message=FALSE}
 colours = list(Dog=D.cols)
 a = super.fitZig.kv(physeq = merged.phy,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_taxa_merged"),
-heatmap.descriptor=c("tax_annot"), main=c("Dog G vs. B, taxa merged"), subt=c("subt = FDR < ###0.05,|coeff| >= 1.25, >20%+ in either group"), ordered=TRUE, p=0.05, FC = 1.25, perc=0.2, extra.cols = c("Treatment"))
+		heatmap.descriptor=c("tax_annot"), main=c("Dog G vs. B, taxa merged"), subt=c("subt = FDR < 0.05,|coeff| >= 1.25, >20%+ in either group"), 
+		ordered=TRUE, p=0.05, FC = 1.25, perc=0.2, extra.cols = c("Treatment"))
 print(a)
 ```
-Now compare dog G vs. dog B (individual taxa)
-```{r, echo=TRUE, warning=FALSE}
+Now again compare dog G vs. dog B with differential abundance testing (individual OTUs as opposed to merged this time)
+
+```{r, echo=TRUE, message=FALSE}
 b = super.fitZig.kv(physeq = phy.temp,factor = "Dog",outDir = outDir,FileName =c("1_25FC_0.2_Dog_GvsB_OTUs"),
 		heatmap.descriptor=c("tax_annot"), main=c("Dog G vs. B, OTUs"), subt=c("subt = FDR < 0.05,|coeff| >= 1.25, >20%+ in either group"), 
 		ordered=TRUE, p=0.05, FC = 1.25, perc=0.2, extra.cols = c("Treatment"))
 b
 sessionInfo()
 ```
-
-## Packages req required run this tutorial
-* phyloseq
-* ggplot2
-* gridExtra
-* dunn.test
-* NMF
-* vegan
-* corrplot
-* psych
-* matrixStats
-* fifer
-* metagenomeSeq
-* randomForest
-* dplyr
-* ROCR
