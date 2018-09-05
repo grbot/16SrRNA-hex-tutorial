@@ -1,3 +1,12 @@
+---
+title: "Dog microbiome 16S analysis"
+author: Katie Lennard
+date: September 05, 2018
+output:
+  md_document:
+    variant: markdown_github
+---
+
 DOG MICROBIOME BASIC ANALYSES
 ================================
 Background
@@ -17,48 +26,14 @@ here:
     beta-diversity, heatmaps.
 -   Differential abundance testing by a) Dog and b) Treatment
 
-## This tutorial should be run in an interactive session. Please do not runnning anything on the headnode.
-
-### To get to a compute node do
-```bash
-qsub -I -q UCTlong -l walltime=08:00:00
-```
-Once you are on a compute node you will see that the prompt changes from ```@srvslshpc001``` to ```@srvslshpc60X``` e.g.
-
-```bash
-gerrit@srvslshpc001:~> qsub -I -q UCTlong -l walltime=08:00:00
-qsub: waiting for job 1598565.srvslshpc001 to start
-qsub: job 1598565.srvslshpc001 ready
-
-gerrit@srvslshpc601:~> hostname
-srvslshpc601
-
-````
-
-Make an output directory for R downstream analyses
----------------------------------------------------
-**NB - replace hpc30 with your user account**
-```bash
-mkdir /researchdata/fhgfs/hpc30/R_downstream
-```
-
-Load the R environment required
--------------------------------
-```bash
-module load software/R-3.3.0
-```
-Startup R 
-----------------------
-
-enter 'R' into terminal
-
+## This tutorial should be run on your local machine (preferably in RStudio).
 
 Import data and create phyloseq object
 -------------------------------------------
 
 **Import BIOM file (generated in QIIME) into a phyloseq object**
 
-```{r, echo=TRUE,message=FALSE}
+```{r, echo=TRUE,message=FALSE, warning=FALSE}
 library(phyloseq)
 library(ggplot2)
 library(gridExtra)
@@ -68,18 +43,16 @@ library(randomForest)
 library(dplyr)
 ```
 **Import custom functions used in script**
-
-```{r, echo=TRUE, message=FALSE}
-source("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/src/microbiome_custom_functions.R")
+**NB replace the directory listed below to your own, keeping only the .R file name**
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+source("/Users/katielennard/Documents/workspace/R_projects/R_projects/Microbiome_project/microbiome_custom_functions.R")
 ```
 **Set the working directory and import data**
-**NB replace the directory listed below to /researchdata/fhgfs/hpc30, substituting 'hpc30' with the name that has been given to you in the class**
 
 ```{r, echo=TRUE, message=FALSE}
-#setwd("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/")
-#inDir <- getwd()#specify input directory
-inDir <- c("/scratch/DB/bio/training/16SrRNA/16SrRNA-hex-tutorial/results/")
-outDir <- paste0(inDir,"/R_downstream") #specify output directory
+setwd("/Users/katielennard/Documents/Academic/Postdoc/Projects/cbio_16S_pipeline_certification/Sept18_testing")
+inDir <- getwd()#specify input directory
+outDir <- paste0(inDir,"/results") #specify output directory, create 'results' folder if necessary
 phy <- import_biom(BIOMfilename = paste0(inDir,"/otus_table.tax.biom"), 
 		verbose = TRUE)#
 ntaxa(phy) #(number of OTUs)
@@ -125,7 +98,7 @@ sample_data(phy)[,"Treatment"] <- as.factor(unlist(sample_data(phy)[,"Treatment"
 **Save phyloseq object as an .RData file**
 
 ```{r, echo=TRUE, message=FALSE}
-save(phy, file = paste0(outDir,"/CBIO_16s_cert.RData")) #Save annotated object as a .RData object for quick reload if required at a later stage
+#save(phy, file = paste0(outDir,"/CBIO_16s_cert.RData")) #Save annotated object as a .RData object for quick reload if required at a later stage
 #load(paste0(outDir,"/CBIO_16s_cert.RData")) #this is how you would reload the .RData object 'phy'
 ```
 Explore number of reads per sample, make rarefaction curves and filter data as necessary
@@ -157,7 +130,7 @@ M.std = transform_sample_counts(phy, standf)
 
 Select OTUs where the rowsum for that OTU has at least 20% of samples with a count of 10 each OR where that OTU > 0.001% of the total median count (for cases where the minority of samples may have high counts of a rare OTU)
 ```{r,echo=TRUE, message=FALSE}
-M.f = filter_taxa(M.std,function(x) sum(x > 10) > (0.02*length(x)) | sum(x) > 0.001*total, TRUE)
+M.f = filter_taxa(M.std,function(x) sum(x > 10) > (0.2*length(x)) | sum(x) > 0.001*total, TRUE)
 ntaxa(M.f)
 ```
 **Basic exploratory plots: alpha- and beta-diversity, barplots, heatmap**
