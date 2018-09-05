@@ -2,14 +2,13 @@ library(phyloseq)
 library(NMF)
 library(vegan)
 library(ggplot2)
-library(corrplot)#for cor.mtest
-library(psych)#corr.test
 library(matrixStats)#rowSds
 library(fifer)
 library(metagenomeSeq)#differential abundance testing
 library(randomForest)
 library(dplyr)
 library(ROCR)
+library(gridExtra)#for grid.arrange()
 nmf.options(grid.patch=TRUE)#set to avoid blank first pdf page being created
 
 #DEFINE CUSTOM COLOR PALETTE WHERE COLORS ARE EASIER TO DISTINGUISH FROM ONE ANOTHER
@@ -127,7 +126,7 @@ tax.lab <- function(otus, physeq, labrow=TRUE,merged=FALSE){
 #---------------------
 heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.samples = NULL, 
 		annot.cols = NULL,colours = NULL, order.by = NULL,main=NULL, subt=NULL,filename,
-		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=1, cexRow=1, scale = "none"){
+		Colv = NULL,rows.sortby=NULL,labrow = FALSE, merged = FALSE, distfun = 'euclidean',hclustfun = 'average', cexCol=0.5, cexRow=0.3, scale = "none"){
 	if(plot.otus==TRUE){
 		#If plotting OTUs - get OTUs
 		otus <- otu_table(physeq)
@@ -220,15 +219,32 @@ heatmap.k = function(physeq=NULL, plot.otus = TRUE,data.subset=NULL,subset.sampl
 #---------------------
 #Generic barplot function build on phyloseq plot_bar(): NB: THE NUMBER OF SAMPLES IN EACH GROUP IS ONLY DISPLAYED CORRECTLY FOR TWO GROUPS (NOT MORE)
 #---------------------
+#This function was modified from the phyloseq plot_bar() function where ggplot2's geom_bar no longers sorted stacked bars by abundance.
+plot_bar_fix <- function (physeq, x = "Sample", y = "Abundance", fill = level, 
+		title = NULL, facet_grid = NULL) 
+{
+	mdf = psmelt(physeq)
+	p=ggplot(mdf[order(-mdf[,y]),],aes_string(x= x, y=y, fill = fill)) + geom_bar(stat='identity')
+	p = p + theme(axis.text.x = element_text(angle = -90, hjust = 0))
+	if (!is.null(facet_grid)) {
+		p <- p + facet_grid(facet_grid)
+	}
+	if (!is.null(title)) {
+		p <- p + ggtitle(title)
+	}
+	return(p)
+}
+
+
 bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,cat, 
-		level, perc, order.bars = NULL,x=NULL, y=NULL, filen = "",outDir){
+		level, perc, order.bars = NULL,x.axis=NULL, y.axis=NULL, filen = "",outDir){
 	if(length(subset.samples)==0){
 		
 	}else if (length(subset.samples) >0){#if there was a subset specified:
 		physeq <- prune_samples(sample_names(physeq)%in% subset.samples,physeq)
 	}
 	if(length(subset.otus)==0){
-	
+		
 	}else if(dim(subset.otus)[1] >0){#if an otus subset was specified
 		physeq <- prune_taxa(rownames(tax_table(physeq)) %in% rownames(subset.otus),physeq)
 	}
@@ -254,13 +270,14 @@ bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,c
 		}
 	}	
 	for.title <- paste(for.title, collapse = ",")#now paste as one string for use in title
-	p2 <- plot_bar(new,x = cat,fill=level ,title = paste0(level,"-level 16S ",x,". Ns = ",for.title))+ coord_flip() + 
+	p2 <- plot_bar_fix(new,x = cat, fill=level ,title = paste0(level,"-level 16S ",x.axis,". Ns = ",for.title))+ coord_flip() + 
 			ylab("Percentage of Sequences")+theme(axis.text=element_text(size=14),
 					axis.title=element_text(size=14),legend.title=element_text(size=16),
 					legend.text=element_text(size=14),
-					plot.title=element_text(size=14, face="bold"))+scale_x_discrete(limits=c(order.bars))+scale_fill_manual(values=myPalette)
-	p2 = p2+labs(x=x, y=y)
-	pdf(paste0(outDir,"/",filen,"",level,"_abundance_by_",x,perc,"_",count,".pdf"))
+					plot.title=element_text(size=14, face="bold"))+scale_x_discrete(limits=c(order.bars))+scale_fill_manual(values=myPalette)+theme_bw()+
+			theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+	p2 = p2+labs(x.axis=x.axis, y.axis=y.axis)
+	pdf(paste0(outDir,"/",filen,"",level,"_abundance_by_",x.axis,perc,"_",count,".pdf"))
 	par(cex.lab = 2)
 	par(cex.axis = 2)
 	grid.arrange(p2, ncol=1)	
@@ -270,14 +287,14 @@ bar.plots <- function(physeq,subset.otus  = NULL, subset.samples = NULL, count,c
 }
 #physeq: phyloseq object, standardized counts
 #cat: category of interest
-#level: level at which to perform taxa mergin
-#perc: minimum percentage of samples which should be positive for a given taxa (stringent filtering (perc=0.5) used to minimize number of taxa in figure legend, and only display most abundant taxa)
+#level: level at which to perform taxa merging
+#perc: minimum fraction of samples which should be positive for a given taxa (stringent filtering (perc=0.5) used to minimize number of taxa in figure legend, and only display most abundant taxa)
 #subset.otus = any dataframe for which the rownames will be used to subset otu.table (stats.sig)
 #subset.samples = names of samples to include in barplot
-#count = minimum OTU count sum across all samples
-#order.bars = option to order barplots  - sometimes relavant if more than 2 categories
-#x =x axis labels, 
-#y = y axis labels, 
+#count = minimum per taxon count summed across all samples
+#order.bars = option to order barplots  - sometimes relavant if more than 2 categories (e.g. order= c("classA","classB","classC")
+#x.axis =x axis labels, 
+#y.axis = y axis labels, 
 #filen = any other filename additions such as project name or date
 
 
@@ -525,7 +542,7 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 #FileName = specify comparison made, not full file path (e.g. "M.prune_PICRUSt_groups_C_vs_A")
 #p = adjusted p-value threshold to use when filtering significant results.
 #default p=0.05
-#perc = threshold for filtering by fraction of +ve ssamples for a given OTU in either group (e.g perc = 0.3 will keep only OTUs where at least one of the two groups have ³ 30% of samples +ve for that OTU) 
+#perc = threshold for filtering by fraction of +ve ssamples for a given OTU in either group (e.g perc = 0.3 will keep only OTUs where at least one of the two groups have ? 30% of samples +ve for that OTU) 
 #default perc = 0.5
 #FC = absolute coefficient threshold to use for filtering (default = 1.5)
 #main = title of heatmap
@@ -536,122 +553,10 @@ super.fitZig.kv <- function(physeq, factor, covariate=NULL,outDir,FileName,heatm
 #labrow = should the heatmap be annotated with taxonomic annotations for OTU ids (TRUE/FALSE; TRUE = taxonomic annotations; FALSE = OTU IDs)
 #extra.cols = any extra columns that you would like to plot on the heatmap e.g. c("feeding","HIV_exposure")
 #------------------------------------------------------
-#MAKE FUNCTION TO PERFORM PAIRWISE CORRELATIONS, TEST FOR SIGNIFICANCE AND PLOT CORRELLOGRAM
-#mat1: matrix 1
-#mat2: matrix 2
-#p: adjusted p-value to sue as cutoff
-#use: pairwise correlations? If yes: "pairwise" if not 
-#pdf.height: specify height of correlogram .pdf in inches, default=7
-#pdf.width: specify width of correlogram .pdf in inches, default=7
-corr.k <- function(mat1, mat2, p=0.05, use = "pairwise", adjust = "BH", r = 0.3, filename, rectangles = NULL, pdf.height=NULL, pdf.width=NULL){
-	cor.mat = cor(mat1, mat2)
-	cor.p <- corr.test(mat1,mat2,use = use,adjust=adjust)#MTC adjustment with corr.test from package 'psych'
-	#NOW GET ONLY THE COLUMNS WHERE THERE ARE SIGNIFICANT ENTRIES
-	sig.mat <- cor.mat[,which(apply(cor.p$p,2,min) <= p)]
-	print(paste("There were",dim(sig.mat)[2],"significant after MTC"))
-	#also filter on the magnitude of correlation (³ 0.3)
-	sig.mat <- sig.mat[,which(apply(abs(sig.mat),2,max) >= r)]
-	sig.p <- cor.p$p[,colnames(sig.mat)] 
-	print(paste("There were",dim(sig.mat)[2],"significant entries after MTC with R >= ",r))
-	if(dim(sig.mat)[2]<=1){
-		return(sig.mat)
-	}
-	#------------------------------
-	#CALCULATE CONFIDENCE INTERVALS 
-	upper = cor.p$ci$upper
-	upper.mat = matrix(upper, dim(cor.p$p)[1],dim(cor.p$p)[2])#
-	dim(upper.mat)
-	rownames(upper.mat) <- rownames(cor.p$p)
-	colnames(upper.mat) <- colnames(cor.p$p)
-	#subset to match sig.mat
-	dim(upper.mat)
-	upper.mat <- upper.mat[rownames(sig.mat),colnames(sig.mat)]
-	dim(upper.mat)
-	lower = cor.p$ci$lower
-	lower.mat = matrix(lower, dim(cor.p$p)[1],dim(cor.p$p)[2])#
-	rownames(lower.mat) <- rownames(cor.p$p)
-	colnames(lower.mat) <- colnames(cor.p$p)
-	#subset to match sig.mat
-	lower.mat <- lower.mat[rownames(sig.mat),colnames(sig.mat)]
-	#------------------------------
-	#now sort by direction of correlation for ease of interpretation 
-	if(identical(mat1,mat2)==FALSE){
-		o.c <- colnames(sig.mat)[order(apply(sig.mat,2,mean), decreasing=FALSE)]
-		o.r <- rownames(sig.mat)[order(apply(sig.mat,1,function(x) sum(abs(x))), decreasing=FALSE)]
-		sig.mat <- sig.mat[o.r,o.c]
-		sig.p <- sig.p[o.r,o.c]
-		dim(sig.p)
-		#PLOT RESULTS AS CORRELOGRAM
-		pdf(paste0(outDir,"/",filename,".pdf"),width=pdf.width, height=pdf.height)#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,
-				insig = "blank",tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-		#REORDER CI MATRICES
-		lower.mat <- lower.mat[rownames(sig.mat),colnames(sig.mat)]
-		upper.mat <- upper.mat[rownames(sig.mat),colnames(sig.mat)]
-		#now plot with MTC and CIs:
-		pdf(paste0(outDir,"/",filename,"p.adj_",p,"_CIs.pdf"))#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,low = lower.mat, upp = upper.mat,
-				rect.col = "navy",plotC="rect",cl.pos ="n",
-				insig = "blank",tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-	}else{#PLOT RESULTS AS SQUARE CORRELOGRAM WITH HIERARCHICAL CLUSTERING
-		pdf(paste0(outDir,"/",filename,".pdf"), width=pdf.width, height=pdf.height)#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,
-				insig = "blank",order = "hclust",addrect = rectangles,tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-		#with CIs
-		#now plot with MTC and CIs:
-		pdf(paste0(outDir,"/",filename,"p.adj_",p,"_CIs.pdf"))#
-		corrplot(sig.mat, method='circle',p.mat = sig.p,sig.level=p,low = lower.mat, upp = upper.mat,
-				rect.col = "navy",plotC="rect",cl.pos ="n",
-				insig = "blank",order = "hclust",addrect = rectangles,tl.cex=0.7,tl.col = "black", cl.cex = 0.7)
-		dev.off()
-	}
-}
-	
-#--------------------------------------------------
-#The function MC.summary takes the output from PICRUSt's metagenome_contributions.py, together with taxonomic annotation for the OTUs included in 
-#this table and provides a summary of the contribution of each Family/Genus.. etc to ONE SPECIFIC KEGG gene e.g. K02030
-#--------------------------------------------------
-#metagenome.contributions = output from PICRUSt's metagenome_contributions.py (imported as a data frame)
-#KEGG.gene: KEGG gene of interest e.g. "K02030"
-#samples: list of sample names to be included
-#level: desired tax level for summary e.g. "Family", "Genus" depending on the column names of your tax table
-#outDir: output directory
-#file.ext: descriptive file extension such as "Family_K02030"
-#tax.table: taxonomic table for OTUs of interest
-MC.summary = function(metagenome.contributions, KEGG.gene, tax.table,samples, level,outDir, file.ext){
-	out = c()
-	for (i in 1:length(samples)) {#for each sample, summarise each family's contribution to the KEGG gene of interest
-		Kc = metagenome.contributions[metagenome.contributions$Gene == KEGG.gene,]#subset input by KEGG gene of interest
-		this.data=Kc[Kc$Sample==samples[i],]#get data for that specific sample
-		otus=this.data[,3]#get all otus for this sample and this gene
-		this.tax.table=tax.table[as.character(unique(otus)),]#get corresponding taxonomy for these OTUs.
-		tot.taxa=sum(this.data[,7] )#get the percentage contributed by all OTUs in sample i for this specific gene, which should = 1
-		taxa=unique(this.tax.table[,level] )#get list of unique taxa at required tax level
-		taxa[taxa==" "] = "other"#for taxa with no family level annotation - these will all be summarised together as 'other'
-		for (j in 1:length(taxa) ) {
-			map2fam = rownames(this.tax.table)[this.tax.table[,level] == taxa[j]]#get OTU IDs for a particular family
-			taxa.tot=sum(this.data[this.data$OTU %in% map2fam,7] )/tot.taxa#get the total percent contribution for each family to this specific gene for sample i
-			line = t(c(as.character(samples[i]), taxa[j], taxa.tot ))
-			out = rbind(line,out)
-		}
-		print(i)
-	}
-	#write results to file
-	colnames(out) = c("Sample","Taxa","Contribution")
-	out = data.frame(out)
-	out$Contribution = as.numeric(as.character(out$Contribution))
-	write.table(out,file=paste0(outDir,file.ext,'.txt'), quote=FALSE,sep = "\t", col.names=TRUE, row.names=FALSE)
-	return(out)
-}
-
-
 
 #--------------------------------------------------
 #The function RF.k performs random forests analysis on the otu table of a supplied phyloseq object.
-#NB: this function is only setup for categorical response variables NOT regression on continuous response variables
+#NB: this function is only setup for two-class categorical response variables NOT regression on continuous response variables
 #The data is randomly divided into a training (two thirds of the data) and test set (remaining one third of the data not used for training)
 #results printed to screen include most important taxa, AUC, PPV, NPV
 #Option to specify the top 'x' taxa to see how they perform
@@ -667,199 +572,211 @@ MC.summary = function(metagenome.contributions, KEGG.gene, tax.table,samples, le
 #testAndtrain: should the dataset be divided into training (randomly select two thirds of the data) and test sets (the remaining one third of the data)
 #testAndtrain valid options: TRUE | FALSE
 #descriptor: any additional description that needs to go in the file name (e.g. 'merged_otus')
-RF.k <- function(data, seed = 212,var, ntree=500, mtry=if (!is.null(y) && !is.factor(y))
-					max(floor(ncol(x)/3), 1) else floor(sqrt(ncol(x))), cv.fold=3, outDir,Nfeatures.validation=NULL, testAndtrain=FALSE,descriptor = c(),...){#function default values supplied, change as required
-	
-	summary_file <- paste0(outDir,"RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
-	write(print(paste(length(which(is.na(sample_data(data)[,var]))),"samples did not have response variable data, removing these...")), 
-			file = summary_file,sep = "\t")
-	sub.index <- which(!is.na(sample_data(data)[,var]))#
-	data <- prune_samples(sample_names(data)[sub.index],data)
-	if(testAndtrain==TRUE){
-		table = otu_table(data)
-		train.n = round(2/3*nsamples(data))
-		#generate random integers between 1 and nsamples(phy.temp)
-		set.seed(seed)
-		random = sample(1:nsamples(data), train.n)
-		train = table[,random]
-		test = table[,-random]
-		tbl <- table(sample_data(data)[colnames(train),var])
-		write(print(paste("Training set size: ",dim(train)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
-				file = summary_file,sep = "\t", append=T)
-		tbl <- table(sample_data(data)[colnames(test),var])
-		write(print(paste("Test set size: ",dim(test)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")),
-				file = summary_file,sep = "\t", append=T)
-		#TRAINING - RANDOMLY SELECT 2/3 OF DATASET
-		# Make a dataframe of training data with OTUs as column and samples as rows
-		predictors <- t(train)
-		predictors = data.frame(predictors)
-		#------------------
-		# Make one column for our outcome/response variable 
-		response <- as.factor(unlist(sample_data(data)[random,var]))
-		names(response) <- sample_names(data)[random]
-	}
-	else if(testAndtrain==FALSE){
-		table = otu_table(data)
-		tbl <- table(sample_data(data)[,var])
-		write(print(paste("Data set size: ",tbl[1]+tbl[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
-				file = summary_file,sep = "\t", append=T)
-		# Make a dataframe of training data with OTUs as column and samples as rows
-		predictors <- t(table)
-		predictors = data.frame(predictors)
-		#------------------
-		# Make one column for our outcome/response variable 
-		response <- as.factor(unlist(sample_data(data)[,var]))
-		names(response) <- sample_names(data)
-	}
-
-	#------------------------------------
-	#BUILD RF MODEL
-	# Combine them into 1 data frame
-	rf.data <- data.frame(response, predictors)
-	head(rf.data)
-	set.seed(2)
-	classify <- randomForest(response~ ., data = rf.data, importance=T, proximity=T,ntree = 10000, na.action=na.omit)
-	classify
-	sink(summary_file,append=T)
-	print(classify)
-	sink()
-	#------------------------------------------
-	#RF CV for feature selection:
-	rf.cv = rfcv(rf.data[,2:dim(rf.data)[2]], rf.data[,1], cv.fold=cv.fold)
-	write(print("Cross-validated error rates associated with stepwise reduction of features:"),file = summary_file,sep = "\t", append=T)
-	print(rf.cv$error.cv)
-	sink(summary_file, append=T)
-	print(rf.cv$error.cv)
-	sink()
-	pdf(paste0(outDir,"RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
-	with(rf.cv, plot(n.var, error.cv, log="x", type="o", lwd=2))
-	dev.off()
-	#----------------------------------
-	# Make a data frame with predictor names and their importance
-	imp <- importance(classify)
-	imp <- data.frame(predictors = rownames(imp), imp)
-	# Order the predictor levels by importance
-	imp.sort <- arrange(imp, desc(MeanDecreaseGini))
-	imp.sort$predictors <- factor(imp.sort$predictors, levels = imp.sort$predictors)
-	# Select the top 20 predictors
-	imp.20 <- imp.sort[1:20, ]
-	#add taxonomy info
-	rownames(imp.20) = imp.20[,1]
-	labs = tax.lab(imp.20, data, labrow=TRUE,merged=FALSE)
-	#head(labs)
-	#rownames(imp.20) = labs
-	#head(imp.20)
-	imp.20$tax = labs
-	imp.20$tax = factor(imp.20$tax, levels = imp.20$tax)#avoid ggplot sorting alphabetically\
-	write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-	write(print("THE TOP 20 MOST IMPORTANT FEATURES WERE:"),file = summary_file,sep = "\t", append=T)
-	print(imp.20)
-	sink(summary_file, append=T)
-	print(imp.20)
-	sink()
-	write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-	p <- ggplot(imp.20,aes(x = imp.20[,"tax"], y = imp.20[,"MeanDecreaseGini"]),environment = environment())+
-			geom_bar(stat = "identity", fill = "grey") +
-			coord_flip() +
-			ggtitle(paste("Most important taxa for classifying samples by ",var))+
-			theme_bw() + 
-			theme(panel.background = element_blank(), 
-					panel.grid.major = element_blank(),  #remove major-grid labels
-					panel.grid.minor = element_blank(),  #remove minor-grid labels
-					plot.background = element_blank())
-	pdf(paste0(outDir, "RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
-	print(p)
-	dev.off()
-	#------------------------------------
-	#------------------------------------
-	# Calculate ROC AUC
-	predictions = as.vector(classify$votes[,2])
-	pred1 = prediction(predictions, classify$y)#
-	auc1 = performance(pred1, 'auc')
-	#------------------------------------
-	#Calculate AUC, PPV, NPV
-	write(print(paste0("Training AUC=",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
-	# Calculate predictive value of classifier
-	confusion1 = classify$confusion[c(2,1),c(2,1)]
-	ppv1 = ((confusion1[1,1])/(confusion1[1,1]+confusion1[2,1]))
-	write(print(paste0("Training PPV=",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
-	npv1 = ((confusion1[2,2])/(confusion1[1,2]+confusion1[2,2]))
-	write(print(paste0("Training NPV=",round(npv1,2))),file = summary_file,sep = "\t", append=T)
-	# Plot ROC AUC for classifier 
-	pdf(paste0(outDir,"/RFs_",var,"_variable_ROC_curve_training_set_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
-	perf1 = performance(pred1, 'tpr','fpr')
-	plot(perf1, main='ROC Curve taxa predictors, training set', col='red', lwd=2)
-	text(0.5,0.5,paste('AUC = ',format(auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',
-					format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
-	dev.off()
-	#SEE HOW THE TOP X NUMBER OF FEATURES DO - SPECIFY IN 'Nfeatures.validation' PARAMETER
-	if(length(Nfeatures.validation)!=0){
-		#sort by mean decrease in Gini index and select top 'x'
-		goodPredictors = rownames(classify$importance)[order(classify$importance[,4],decreasing=T)][1:Nfeatures.validation]
-		rf.x = randomForest(response ~ .,data=rf.data[,c(goodPredictors,"response")],importance=T,proximity=T,ntree = ntree, na.action=na.omit)#~. include all variables
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),summary_file,sep = "\t", append=T)
-		write(print(paste("Feature(s) selected:",goodPredictors)),file = summary_file,sep = "\t", append=T)
-		print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
-		sink(summary_file, append=T)
-		print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
-		sink()
-		#write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),file = paste0(outDir,"RF",var,"results.txt"),sep = "\t", append=T)
-		print(rf.x)
-		sink(summary_file, append=T)
-		print(rf.x)
-		sink()
-	}
-	if(testAndtrain==TRUE){
-		#---------------------------------------
-		#NOW TEST CLASSIFIER IN TEST COHORT (I.E. REMAINING 1/3 OF DATASET) USING THE TOP X FEATURES
-		#---------------------------------------
-		if(length(Nfeatures.validation)!=0){
-			rf.test = rf.x
-		}
-		else{rf.test = classify}
-		predictors <- t(test)#now use test set
-		response <- as.factor(unlist(sample_data(data)[-random,var]))
-		names(response) <- sample_names(data)[-random]
-		test.data <- data.frame(response, predictors)	
-		# Getting predictions for testing hold-out data
-		validation.resp1 = predict(rf.test, test.data, type='response')
-		validation.vote1 = predict(rf.test, test.data, type='vote')
-		# Create confusion matrix
-		confusion1 = table(data.frame(cbind(Actual=response,Predicted=validation.resp1)))
-		class.labels = levels(as.factor(unlist(sample_data(data)[,var])))
-		rownames(confusion1) = c(class.labels[1],class.labels[2])
-		colnames(confusion1) = c(class.labels[1],class.labels[2])
-		ro1 = c(class.labels[1],class.labels[2])
-		#predicted error
-		err1 = ((confusion1[1,2]+confusion1[2,1])/sum(confusion1))
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print("moving to TEST set (1/3 of data)"),file = summary_file,sep = "\t", append=T)
-		if(length(Nfeatures.validation)!=0){
-			write(print(paste("using the top",Nfeatures.validation,"features")),file = summary_file,sep = "\t", append=T)
-		}
-		else{write(print("using all features"),file = summary_file,sep = "\t", append=T)
-		}
-		write(print("*****************************"),file = summary_file,sep = "\t", append=T)
-		write(print(paste0("Validation predicted error: ",round(err1*100,2),"%")),file = summary_file,sep = "\t", append=T)
-		#--------------------------
-		# Calculate ROC AUC for testing set
-		validation.predictions = as.vector(validation.vote1[,2])
-		validation.pred1 = prediction(validation.predictions, response)
-		validation.auc1 = performance(validation.pred1, 'auc')
-		write(print(paste0("Test set AUC=",round(auc1@y.values[[1]],2))),summary_file,sep = "\t", append=T)
-		ppv1 = ((confusion1[1,1])/(confusion1[1,1]+confusion1[2,1]))
-		write(print(paste0("Test set PPV=",round(ppv1,2))),summary_file,sep = "\t", append=T)
-		npv1 = ((confusion1[2,2])/(confusion1[1,2]+confusion1[2,2]))
-		write(print(paste0("Test set NPV=",round(npv1,2))),summary_file,sep = "\t", append=T)
-		#------------------------------------
-		pdf(paste0(outDir,'/RFs_',var,'_validation.taxa_',ntree,"_", cv.fold, "_",Nfeatures.validation,"_",seed,descriptor,'_ROC_curve.pdf'))
-		validation.perf1 = performance(validation.pred1, 'tpr','fpr')
-		plot(validation.perf1, main='ROC Curve taxa predictors, test set', col='blue', lwd=2)
-		text(0.5,0.5,paste('AUC = ',format(validation.auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
-		dev.off()
-	}
+#np: number of top features to display in table and variable importance plot
+#positive.class: the positive class needs to be specified - this should match one of the levels() under 'var' of interest e.g:
+#for the variable "TB status" the positive class might be "TBpos" - this is used to calculate PPV, NPV
+RF.k <- function(data, seed = 2,var, ntree=500, mtry=if (!is.null(y) && !is.factor(y))
+  max(floor(ncol(x)/3), 1) else floor(sqrt(ncol(x))), cv.fold=3, outDir,Nfeatures.validation=NULL, testAndtrain=FALSE,np=50,
+  positive.class,descriptor = c(),...){#function default values supplied, change as required
+  
+  summary_file <- paste0(outDir,"/RF",var,"_results_",ntree,"_",cv.fold,"_", Nfeatures.validation,"_",seed,descriptor,".txt")
+  write(print(paste(length(which(is.na(sample_data(data)[,var]))),"samples did not have response variable data, removing these...")), 
+        file = summary_file,sep = "\t")
+  sub.index <- which(!is.na(sample_data(data)[,var]))#
+  data <- prune_samples(sample_names(data)[sub.index],data)
+  if(testAndtrain==TRUE){
+    table = otu_table(data)
+    train.n = round(2/3*nsamples(data))
+    #generate random integers between 1 and nsamples(phy.temp)
+    set.seed(seed)
+    random = sample(1:nsamples(data), train.n)
+    train = table[,random]
+    test = table[,-random]
+    tbl <- table(sample_data(data)[colnames(train),var])
+    write(print(paste("Training set size: ",dim(train)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
+          file = summary_file,sep = "\t", append=T)
+    tbl <- table(sample_data(data)[colnames(test),var])
+    write(print(paste("Test set size: ",dim(test)[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")),
+          file = summary_file,sep = "\t", append=T)
+    #TRAINING - RANDOMLY SELECT 2/3 OF DATASET
+    # Make a dataframe of training data with OTUs as column and samples as rows
+    predictors <- t(train)
+    predictors = data.frame(predictors)
+    #------------------
+    # Make one column for our outcome/response variable 
+    response <- as.factor(unlist(sample_data(data)[random,var]))
+    names(response) <- sample_names(data)[random]
+  }
+  else if(testAndtrain==FALSE){
+    table = otu_table(data)
+    tbl <- table(sample_data(data)[,var])
+    write(print(paste("Data set size: ",tbl[1]+tbl[2], "samples","with",tbl[1],"and",tbl[2], "samples per class")), 
+          file = summary_file,sep = "\t", append=T)
+    # Make a dataframe of training data with OTUs as column and samples as rows
+    predictors <- t(table)
+    predictors = data.frame(predictors)
+    #------------------
+    # Make one column for our outcome/response variable 
+    response <- as.factor(unlist(sample_data(data)[,var]))
+    names(response) <- sample_names(data)
+  }
+  
+  #------------------------------------
+  #BUILD RF MODEL
+  # Combine them into 1 data frame
+  rf.data <- data.frame(response, predictors)
+  head(rf.data)
+  set.seed(seed)
+  classify <- randomForest(response~ ., data = rf.data, importance=T, proximity=T,ntree = ntree, na.action=na.omit)
+  classify
+  sink(summary_file,append=T)
+  print(classify)
+  sink()
+  #------------------------------------------
+  #RF CV for feature selection:
+  rf.cv = rfcv(rf.data[,2:dim(rf.data)[2]], rf.data[,1], cv.fold=cv.fold)
+  write(print("Cross-validated error rates associated with stepwise reduction of features:"),file = summary_file,sep = "\t", append=T)
+  print(rf.cv$error.cv)
+  sink(summary_file, append=T)
+  print(rf.cv$error.cv)
+  sink()
+  pdf(paste0(outDir,"/RF_elbow_plot_",var,"_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
+  with(rf.cv, plot(n.var, error.cv, log="x", type="o", lwd=2))
+  dev.off()
+  #----------------------------------
+  # Make a data frame with predictor names and their importance
+  imp <- importance(classify)
+  imp <- data.frame(predictors = rownames(imp), imp)
+  # Order the predictor levels by importance
+  imp.sort <- arrange(imp, desc(MeanDecreaseGini))
+  imp.sort$predictors <- factor(imp.sort$predictors, levels = imp.sort$predictors)
+  # Select the top n predictors
+  imp.n <- imp.sort[1:np, ]
+  #add taxonomy info
+  rownames(imp.n) = imp.n[,1]
+  labs = tax.lab(imp.n, data, labrow=TRUE,merged=FALSE)
+  imp.n$tax = labs
+  imp.n$tax = factor(imp.n$tax, levels = imp.n$tax)#avoid ggplot sorting alphabetically\
+  write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+  write(print(paste("THE TOP",np," MOST IMPORTANT FEATURES WERE:")),file = summary_file,sep = "\t", append=T)
+  print(imp.n)
+  sink(summary_file, append=T)
+  print(imp.n)
+  sink()
+  write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+  p <- ggplot(imp.n,aes(x = imp.n[,"tax"], y = imp.n[,"MeanDecreaseGini"]),environment = environment())+
+    geom_bar(stat = "identity", fill = "grey") +
+    coord_flip() +
+    ggtitle(paste("Most important taxa for classifying samples by ",var))+
+    theme_bw() + 
+    theme(panel.background = element_blank(), 
+          panel.grid.major = element_blank(),  #remove major-grid labels
+          panel.grid.minor = element_blank(),  #remove minor-grid labels
+          plot.background = element_blank())
+  pdf(paste0(outDir, "/RFs",var,"variable_importance_plot_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))#note: ggplot doesn't plot within a function - this is a workaround using print()
+  print(p)
+  dev.off()
+  #------------------------------------
+  #------------------------------------
+  # Calculate ROC AUC
+  predictions = as.vector(classify$votes[,2])#by default R takes class on right as +ve (alphabetical sorting),this is fine for now
+  pred1 = prediction(predictions, labels=classify$y)#where labels contain true class labels
+  auc1 = performance(pred1, 'auc')
+  #------------------------------------
+  #Calculate AUC, PPV, NPV
+  write(print(paste0("Training AUC=",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
+  # Calculate predictive value of classifier
+  confusion1 = classify$confusion
+  neg.class=which(levels(response)!=positive.class)#is the positive class currently the first or second factor (usually alphabetical)
+  negative.class=levels(response)[neg.class]
+  stopifnot(length(negative.class)==1)
+  ppv1 = 1-confusion1[positive.class,3]#1- the class error already calculated
+  write(print(paste0("Training PPV=",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
+  npv1 = 1-confusion1[negative.class,3]#1- the class error already calculated
+  write(print(paste0("Training NPV=",round(npv1,2))),file = summary_file,sep = "\t", append=T)
+  # Plot ROC AUC for classifier 
+  pdf(paste0(outDir,"/RFs_",var,"_variable_ROC_curve_training_set_",ntree,"_",cv.fold,"_",Nfeatures.validation,"_",seed,descriptor,".pdf"))
+  perf1 = performance(pred1, 'tpr','fpr')
+  plot(perf1, main='ROC Curve taxa predictors, training set', col='red', lwd=2)
+  text(0.5,0.5,paste('AUC = ',format(auc1@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',
+                     format(ppv1,digits=5,scientific=FALSE),'\nNPV = ',format(npv1,digits=5,scientific=FALSE)),cex=2)
+  dev.off()
+  #SEE HOW THE TOP X NUMBER OF FEATURES DO - SPECIFY IN 'Nfeatures.validation' PARAMETER
+  if(length(Nfeatures.validation)!=0){
+    #sort by mean decrease in Gini index and select top 'x'
+    goodPredictors = rownames(classify$importance)[order(classify$importance[,4],decreasing=T)][1:Nfeatures.validation]
+    rf.x = randomForest(response ~ .,data=rf.data[,c(goodPredictors,"response")],importance=T,proximity=T,ntree = ntree, na.action=na.omit)#~. include all variables
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print(paste("Training set classification summary if using the top",Nfeatures.validation, "features only")),summary_file,sep = "\t", append=T)
+    write(print(paste("Feature(s) selected:",goodPredictors)),file = summary_file,sep = "\t", append=T)
+    print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
+    sink(summary_file, append=T)
+    print(rf.x$importance[order(rf.x$importance[,4], decreasing=T),])
+    sink()
+    print(rf.x)
+    sink(summary_file, append=T)
+    print(rf.x)
+    sink()
+    #write AUC, PPV, NPV to file for using the top x features in the tRAINING set
+    predictions = as.vector(rf.x$votes[,2])#by default R takes class on right as +ve (alphabetical sorting),this is fine for now
+    pred1 = prediction(predictions, labels=rf.x$y)#where labels contain true class labels
+    auc1 = performance(pred1, 'auc')
+    write(print(paste0("Training AUC if only using top ",Nfeatures.validation," features",round(auc1@y.values[[1]],2))),file = summary_file,sep = "\t", append=T)
+    # Calculate predictive value of classifier
+    confusion1 = rf.x$confusion
+    ppv1 = 1-confusion1[positive.class,3]#1- the class error already calculated
+    write(print(paste0("Training PPV if using the top ",Nfeatures.validation," features",round(ppv1,2))),file = summary_file,sep = "\t", append=T)
+    npv1 = 1-confusion1[negative.class,3]#1- the class error already calculated
+    write(print(paste0("Training NPV if using the top ",Nfeatures.validation," features",round(npv1,2))),file = summary_file,sep = "\t", append=T)
+  }
+  if(testAndtrain==TRUE){
+    #---------------------------------------
+    #NOW TEST CLASSIFIER IN TEST COHORT (I.E. REMAINING 1/3 OF DATASET) USING THE TOP X FEATURES
+    #---------------------------------------
+    if(length(Nfeatures.validation)!=0){
+      rf.test = rf.x
+    }
+    else{rf.test = classify}
+    predictors <- t(test)#now use test set
+    response <- as.factor(unlist(sample_data(data)[-random,var]))
+    names(response) <- sample_names(data)[-random]
+    test.data <- data.frame(response, predictors)	
+    # Getting predictions for testing hold-out data
+    validation.resp2 = predict(rf.test, test.data, type='response')#class predictions
+    validation.vote2 = predict(rf.test, test.data, type='vote')#vote percentages for two classes
+    # Create confusion matrix
+    confusion2 = table(data.frame(cbind(Actual=response,Predicted=validation.resp2)))
+    class.labels = levels(as.factor(unlist(sample_data(data)[,var])))
+    rownames(confusion2) = c(class.labels[1],class.labels[2])
+    colnames(confusion2) = c(class.labels[1],class.labels[2])
+    #predicted error
+    err2 = ((confusion2[1,2]+confusion2[2,1])/sum(confusion2))
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print("moving to TEST set (1/3 of data)"),file = summary_file,sep = "\t", append=T)
+    if(length(Nfeatures.validation)!=0){
+      write(print(paste("using the top",Nfeatures.validation,"features")),file = summary_file,sep = "\t", append=T)
+    }
+    else{write(print("using all features"),file = summary_file,sep = "\t", append=T)
+    }
+    write(print("*****************************"),file = summary_file,sep = "\t", append=T)
+    write(print(paste0("Validation predicted error: ",round(err2*100,2),"%")),file = summary_file,sep = "\t", append=T)
+    #--------------------------
+    # Calculate ROC AUC for testing set
+    validation.predictions = as.vector(validation.vote2[,2])
+    validation.pred2 = prediction(validation.predictions, response)
+    validation.auc2 = performance(validation.pred2, 'auc')
+    write(print(paste0("Test set AUC=",round(validation.auc2@y.values[[1]],2))),summary_file,sep = "\t", append=T)
+    ppv2 = ((confusion2[positive.class,positive.class])/(confusion2[positive.class,positive.class]+confusion2[positive.class,negative.class]))
+    write(print(paste0("Test set PPV=",round(ppv2,2))),summary_file,sep = "\t", append=T)
+    npv2 = ((confusion2[negative.class,negative.class])/(confusion2[negative.class,negative.class]+confusion2[negative.class,positive.class]))
+    write(print(paste0("Test set NPV=",round(npv2,2))),summary_file,sep = "\t", append=T)
+    #------------------------------------
+    pdf(paste0(outDir,'/RFs_',var,'_validation.taxa_',ntree,"_", cv.fold, "_",Nfeatures.validation,"_",seed,descriptor,'_ROC_curve.pdf'))
+    validation.perf2 = performance(validation.pred2, 'tpr','fpr')
+    plot(validation.perf2, main='ROC Curve taxa predictors, test set', col='blue', lwd=2)
+    text(0.5,0.5,paste('AUC = ',format(validation.auc2@y.values[[1]],digits=5,scientific=FALSE),'\nPPV = ',format(ppv2,digits=5,scientific=FALSE),'\nNPV = ',format(npv2,digits=5,scientific=FALSE)),cex=2)
+    dev.off()
+  }
 }
-
 #////////////////////////////////
 #///////////////////////////////////////
